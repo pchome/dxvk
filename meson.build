@@ -5,6 +5,7 @@ cpu_family = target_machine.cpu_family()
 dxvk_compiler = meson.get_compiler('cpp')
 dxvk_include_path = include_directories('./include')
 
+if (get_option('wine-build') == false)
 if (cpu_family == 'x86_64')
   dxvk_library_path = meson.source_root() + '/lib'
 else
@@ -12,6 +13,16 @@ else
 endif
 
 lib_vulkan = dxvk_compiler.find_library('vulkan-1', dirs : dxvk_library_path)
+
+else
+  add_global_arguments('-DNOMINMAX', language : 'cpp')
+  add_global_arguments('-DWINEBUILD', language : ['c', 'cpp'])
+  
+  wine_gcc = find_program('winegcc', required : true)
+  wine_gpp = find_program('wineg++', required : true)
+
+  lib_vulkan         = dxvk_compiler.find_library('vulkan-1')
+endif
 
 lib_d3d11          = dxvk_compiler.find_library('d3d11')
 lib_dxgi           = dxvk_compiler.find_library('dxgi')

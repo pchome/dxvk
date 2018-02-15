@@ -30,6 +30,15 @@ ninja install
 
 The two libraries `dxgi.dll` and `d3d11.dll`as well as some demo executables will be located in `/your/dxvk/directory/bin`.
 
+### Building native WINE DLLs
+Inside the dxvk directory, run:
+```
+meson -Dwine-build=true --cross-file build-win64-wine.txt build.x86_64
+cd build.x86_64
+meson configure -Dprefix=/your/dxvk/directory/ -Dbuildtype=release
+ninja
+ninja install
+```
 ## How to use
 In order to set up a wine prefix to use DXVK instead of wined3d globally, run:
 ```

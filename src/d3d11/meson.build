@@ -25,12 +25,22 @@ d3d11_src = [
   'd3d11_view_uav.cpp',
 ]
 
+if (get_option('wine-build'))
+d3d11_dll = shared_library('d3d11.dll', d3d11_src,
+  name_prefix         : '',
+  link_with           : [ util_lib ],
+  dependencies        : [ lib_dxgi, dxbc_dep, dxvk_dep ], # position metter
+  include_directories : dxvk_include_path,
+  objects             : 'd3d11.spec',
+  install             : true)
+else
 d3d11_dll = shared_library('d3d11', d3d11_src,
   name_prefix         : '',
   link_with           : [ util_lib ],
   dependencies        : [ dxvk_dep, dxgi_dep, dxbc_dep ],
   include_directories : dxvk_include_path,
   install             : true)
+endif
 
 d3d11_dep = declare_dependency(
   link_with           : [ d3d11_dll ],

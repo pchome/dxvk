@@ -1,0 +1,19 @@
+[binaries]
+c = '/usr/bin/winegcc'
+cpp = '/usr/bin/wineg++'
+ar = '/usr/bin/ar'
+strip = '/usr/bin/strip'
+exe_wrapper = 'sh'
+
+[properties]
+c_args = ['-march=native']
+c_link_args = []
+
+cpp_args = ['-march=native', '-DNOMINMAX']
+cpp_link_args = []
+
+[host_machine]
+system = 'linux'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'

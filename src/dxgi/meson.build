@@ -9,12 +9,22 @@ dxgi_src = [
   'dxgi_swapchain.cpp',
 ]
 
+if (get_option('wine-build'))
+dxgi_dll = shared_library('dxgi.dll', dxgi_src,
+  name_prefix         : '',
+  link_with           : [ util_lib ],
+  dependencies        : [ dxvk_dep ],
+  include_directories : dxvk_include_path,
+  objects             : 'dxgi.spec',
+  install             : true)
+else
 dxgi_dll = shared_library('dxgi', dxgi_src,
   name_prefix         : '',
   link_with           : [ util_lib ],
   dependencies        : [ dxvk_dep ],
   include_directories : dxvk_include_path,
   install             : true)
+endif
 
 dxgi_dep = declare_dependency(
   link_with           : [ dxgi_dll ],

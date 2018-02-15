@@ -7,3 +7,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <unknwn.h>
+
+#ifdef WINEBUILD
+#define typeof __typeof
+#endif

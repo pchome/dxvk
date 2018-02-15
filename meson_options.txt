@@ -1,0 +1,28 @@
+# -*- mode: meson -*-
+
+option('wine-build', type : 'boolean', value : 'false',
+       description : 'build with winebuild wrapper')
+
+
+option('hud', type : 'boolean', value : 'true',
+       description : 'HUD support')
+
+option('logger', type : 'boolean', value : 'true',
+       description : 'builtin logger support')
+
+option('env', type : 'boolean', value : 'true',
+       description : 'support environment variables to interract with libraries')
+
+
+option('utils', type : 'boolean', value : 'true',
+       description : 'build utils')
+
+option('install-utils', type : 'boolean', value : 'false',
+       description : 'install utils')
+
+
+option('tests', type : 'boolean', value : 'true',
+       description : 'build test executables')
+
+option('install-tests', type : 'boolean', value : 'false',
+       description : 'install test executables')

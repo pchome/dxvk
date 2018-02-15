@@ -58,7 +58,11 @@ namespace dxvk {
     ::MONITORINFOEX monInfo;
 
     monInfo.cbSize = sizeof(monInfo);
+#ifdef WINEBUILD
+    if (!::GetMonitorInfo(m_monitor, (LPMONITORINFO)&monInfo)) {
+#else    
     if (!::GetMonitorInfo(m_monitor, &monInfo)) {
+#endif
       Logger::err("DxgiOutput: Failed to query monitor info");
       return E_FAIL;
     }
@@ -86,7 +90,11 @@ namespace dxvk {
     ::MONITORINFOEX monInfo;
 
     monInfo.cbSize = sizeof(monInfo);
+#ifdef WINEBUILD
+    if (!::GetMonitorInfo(m_monitor, (LPMONITORINFO)&monInfo)) {
+#else
     if (!::GetMonitorInfo(m_monitor, &monInfo)) {
+#endif
       Logger::err("DxgiOutput: Failed to query monitor info");
       return E_FAIL;
     }

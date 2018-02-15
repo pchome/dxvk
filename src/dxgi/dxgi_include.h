@@ -27,3 +27,7 @@
   #define DXGI_RESOURCE_PRIORITY_HIGH (0xa0000000)
   #define DXGI_RESOURCE_PRIORITY_MAXIMUM (0xc8000000)
 #endif
+
+#ifdef WINEBUILD
+#define _countof(x) (sizeof(x)/sizeof(x[0]))
+#endif
