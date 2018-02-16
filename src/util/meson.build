@@ -1,3 +1,13 @@
+if (get_option('env') == false)
+util_src = files([
+  'com/com_guid.cpp',
+  'com/com_private_data.cpp',
+  'log/log.cpp',
+  'log/log_debug.cpp',
+  'sha1/sha1.c',
+  'sha1/sha1_util.cpp',
+])
+else
 util_src = files([
   'util_env.cpp',
   
@@ -10,6 +20,7 @@ util_src = files([
   'sha1/sha1.c',
   'sha1/sha1_util.cpp',
 ])
+endif
 
 util_lib = static_library('util', util_src,
   include_directories : [ dxvk_include_path ])

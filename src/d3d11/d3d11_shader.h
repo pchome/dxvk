@@ -4,9 +4,9 @@
 #include <dxvk_device.h>
 
 #include "../util/sha1/sha1_util.h"
-
+#ifdef WANT_ENV
 #include "../util/util_env.h"
-
+#endif
 #include "d3d11_device_child.h"
 #include "d3d11_interfaces.h"
 

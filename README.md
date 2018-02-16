@@ -35,7 +35,7 @@ Inside the dxvk directory, run:
 ```
 meson -Dwine-build=true --cross-file build-win64-wine.txt build.x86_64
 cd build.x86_64
-meson configure -Dprefix=/your/dxvk/directory/ -Dbuildtype=release
+meson configure -Denv=false -Dutils=false -Dprefix=/your/dxvk/directory/ -Dbuildtype=release
 ninja
 ninja install
 ```

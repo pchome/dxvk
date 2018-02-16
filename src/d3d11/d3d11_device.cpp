@@ -2356,9 +2356,12 @@ namespace dxvk {
       { "9_2",  D3D_FEATURE_LEVEL_9_2  },
       { "9_1",  D3D_FEATURE_LEVEL_9_1  },
     }};
-    
+
+#ifdef WANT_ENV
     const std::string maxLevel = env::getEnvVar(L"DXVK_FEATURE_LEVEL");
-    
+#else
+    const std::string maxLevel = "";
+#endif    
     auto entry = std::find_if(s_featureLevels.begin(), s_featureLevels.end(),
       [&] (const std::pair<std::string, D3D_FEATURE_LEVEL>& pair) {
         return pair.first == maxLevel;

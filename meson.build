@@ -28,11 +28,32 @@ lib_d3d11          = dxvk_compiler.find_library('d3d11')
 lib_dxgi           = dxvk_compiler.find_library('dxgi')
 lib_d3dcompiler_47 = dxvk_compiler.find_library('d3dcompiler_47')
 
-glsl_compiler = find_program('glslangValidator')
-glsl_generator = generator(glsl_compiler,
-  output    : [ '@BASENAME@.h' ],
-  arguments : [ '-V', '--vn', '@BASENAME@', '@INPUT@', '-o', '@OUTPUT@' ])
+if (get_option('hud'))
+  add_global_arguments('-DWANT_HUD', language : ['c', 'cpp'])
+
+  glsl_compiler = find_program('glslangValidator')
+  glsl_generator = generator(glsl_compiler,
+    output    : [ '@BASENAME@.h' ],
+    arguments : [ '-V', '--vn', '@BASENAME@', '@INPUT@', '-o', '@OUTPUT@' ])
+endif
+
+
+
+if (get_option('env'))
+  add_global_arguments('-DWANT_ENV', language : ['c', 'cpp'])
+endif
+
+if (get_option('logger'))
+  add_global_arguments('-DWANT_LOGGER', language : ['c', 'cpp'])
+endif
+
 
 subdir('src')
-subdir('tests')
-subdir('wine_utils')
+
+if (get_option('tests'))
+  subdir('tests')
+endif
+
+if (get_option('utils'))
+  subdir('wine_utils')
+endif

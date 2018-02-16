@@ -1,7 +1,7 @@
 #include "log.h"
-
+#ifdef WANT_ENV
 #include "../util_env.h"
-
+#endif
 namespace dxvk {
   
   Logger::Logger(const std::string& file_name)
@@ -62,8 +62,11 @@ namespace dxvk {
       { "error", LogLevel::Error },
       { "none",  LogLevel::None  },
     }};
-    
+#ifdef WANT_ENV
     const std::string logLevelStr = env::getEnvVar(L"DXVK_LOG_LEVEL");
+#else
+    const std::string logLevelStr = "";
+#endif
     
     for (const auto& pair : logLevels) {
       if (logLevelStr == pair.first)
@@ -75,6 +78,7 @@ namespace dxvk {
   
   
   std::string Logger::getFileName(const std::string& base) {
+#ifdef WANT_ENV
     std::string path = env::getEnvVar(L"DXVK_LOG_PATH");
     
     if (!path.empty() && *path.rbegin() != '/')
@@ -87,7 +91,11 @@ namespace dxvk {
       exeName.erase(extp);
     
     path += exeName + "_" + base;
+
     return path;
+#else
+    return "dxvk_" + base;
+#endif
   }
   
 }

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../dxvk_device.h"
-
+#ifdef WANT_ENV
 #include "../util/util_env.h"
-
+#endif
 #include "dxvk_hud_devinfo.h"
 #include "dxvk_hud_fps.h"
 #include "dxvk_hud_text.h"

@@ -2,8 +2,9 @@
 
 #include "../util/log/log.h"
 #include "../util/log/log_debug.h"
-
+#ifdef WANT_ENV
 #include "../util/util_env.h"
+#endif
 #include "../util/util_error.h"
 #include "../util/util_flags.h"
 #include "../util/util_math.h"
