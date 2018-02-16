@@ -14,6 +14,10 @@ option('env', type : 'boolean', value : 'true',
        description : 'support environment variables to interract with libraries')
 
 
+option('dll-redirects', type : 'boolean', value : 'false',
+       description : 'add _vk suffix for dll redirect feature')
+
+
 option('utils', type : 'boolean', value : 'true',
        description : 'build utils')
 

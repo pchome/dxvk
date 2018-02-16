@@ -16,6 +16,15 @@ lib_d3d11          = dxvk_compiler.find_library('d3d11')
 lib_dxgi           = dxvk_compiler.find_library('dxgi')
 lib_d3dcompiler_47 = dxvk_compiler.find_library('d3dcompiler_47')
 lib_vulkan         = dxvk_compiler.find_library('vulkan-1', dirs : dxvk_library_path)
+else
+  winebuild = find_program('winebuild')
+  winegcc   = find_program('winegcc')
+
+  if (cpu_family == 'x86_64')
+    target_arch = '-m64'
+  else
+    target_arch = '-m32'
+  endif
 endif
 
 if (get_option('hud'))
@@ -27,7 +36,11 @@ if (get_option('hud'))
     arguments : [ '-V', '--vn', '@BASENAME@', '@INPUT@', '-o', '@OUTPUT@' ])
 endif
 
-
+if (get_option('dll-redirects'))
+  redirect_suffix = '_vk'
+else
+  redirect_suffix = ''
+endif
 
 if (get_option('env'))
   add_global_arguments('-DWANT_ENV', language : ['c', 'cpp'])
