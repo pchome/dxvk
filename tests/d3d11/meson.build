@@ -1,5 +1,5 @@
 if (get_option('wine-build'))
-test_d3d11_deps = [ util_dep, lib_dxgi, lib_d3d11, lib_d3dcompiler_47, declare_dependency(link_args : ['-mwindows']) ]
+test_d3d11_deps = [ util_dep, declare_dependency(link_args : ['-L'+dxvk_library_path, '-ldxgi', '-ld3d11', '-ld3dcompiler_47','-mwindows']) ]
 
 executable('d3d11-compute',  files('test_d3d11_compute.cpp'),  dependencies : test_d3d11_deps, name_suffix: 'exe', install : true)
 executable('d3d11-triangle', files('test_d3d11_triangle.cpp'), dependencies : test_d3d11_deps, name_suffix: 'exe', install : true)

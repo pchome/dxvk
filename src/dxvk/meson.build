@@ -58,7 +58,7 @@ dxvk_src = files([
 if (get_option('wine-build'))
 dxvk_lib = static_library('dxvk', dxvk_src, glsl_generator.process(dxvk_hud_shaders),
   link_with           : [ util_lib, spirv_lib ],
-  dependencies        : [ lib_vulkan, declare_dependency(link_args : ['-lpthread']) ],
+  dependencies        : [ declare_dependency(link_args : ['-L'+dxvk_library_path, '-lvulkan-1', '-lpthread']) ],
   include_directories : [ dxvk_include_path ])
 else
 thread_dep = dependency('threads')

@@ -29,7 +29,7 @@ if (get_option('wine-build'))
 d3d11_dll = shared_library('d3d11.dll', d3d11_src,
   name_prefix         : '',
   link_with           : [ util_lib ],
-  dependencies        : [ lib_dxgi, dxbc_dep, dxvk_dep ], # position metter
+  dependencies        : [ declare_dependency(link_args : ['-L'+dxvk_library_path, '-ldxgi']), dxbc_dep, dxvk_dep ], # position metter
   include_directories : dxvk_include_path,
   objects             : 'd3d11.spec',
   install             : true)

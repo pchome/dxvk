@@ -6,10 +6,10 @@ strip = '/usr/bin/strip'
 exe_wrapper = 'sh'
 
 [properties]
-c_args = ['-march=native']
+c_args = ['-march=native', '-DWINEBUILD']
 c_link_args = []
 
-cpp_args = ['-march=native', '-DNOMINMAX']
+cpp_args = ['-march=native', '-DNOMINMAX', '-DWINEBUILD']
 cpp_link_args = []
 
 [host_machine]
