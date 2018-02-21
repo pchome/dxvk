@@ -897,72 +897,104 @@ namespace dxvk {
     const Rc<DxvkImage>&            dstImage,
     const VkImageSubresourceLayers& dstSubresources,
     const Rc<DxvkImage>&            srcImage,
-    const VkImageSubresourceLayers& srcSubresources) {
+    const VkImageSubresourceLayers& srcSubresources,
+          VkFormat                  format) {
     this->renderPassEnd();
-
-    VkImageSubresourceRange dstSubresourceRange = {
-      dstSubresources.aspectMask,
-      dstSubresources.mipLevel, 1,
-      dstSubresources.baseArrayLayer,
-      dstSubresources.layerCount };
     
-    VkImageSubresourceRange srcSubresourceRange = {
-      srcSubresources.aspectMask,
-      srcSubresources.mipLevel, 1,
-      srcSubresources.baseArrayLayer,
-      srcSubresources.layerCount };
+    if (format == VK_FORMAT_UNDEFINED)
+      format = srcImage->info().format;
     
-    // We only support resolving to the entire image
-    // area, so we might as well discard its contents
-    m_barriers.accessImage(
-      dstImage, dstSubresourceRange,
-      VK_IMAGE_LAYOUT_UNDEFINED,
-      dstImage->info().stages,
-      dstImage->info().access,
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_TRANSFER_WRITE_BIT);
-    m_barriers.accessImage(
-      srcImage, srcSubresourceRange,
-      srcImage->info().layout,
-      srcImage->info().stages,
-      srcImage->info().access,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_TRANSFER_READ_BIT);
-    m_barriers.recordCommands(m_cmd);
+    if (dstImage->info().format == format
+     && srcImage->info().format == format) {
+      // Use the built-in Vulkan resolve function if the image
+      // formats both match the format of the resolve operation.
+      VkImageSubresourceRange dstSubresourceRange = {
+        dstSubresources.aspectMask,
+        dstSubresources.mipLevel, 1,
+        dstSubresources.baseArrayLayer,
+        dstSubresources.layerCount };
+      
+      VkImageSubresourceRange srcSubresourceRange = {
+        srcSubresources.aspectMask,
+        srcSubresources.mipLevel, 1,
+        srcSubresources.baseArrayLayer,
+        srcSubresources.layerCount };
+      
+      // We only support resolving to the entire image
+      // area, so we might as well discard its contents
+      m_barriers.accessImage(
+        dstImage, dstSubresourceRange,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        dstImage->info().stages,
+        dstImage->info().access,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_WRITE_BIT);
+      m_barriers.accessImage(
+        srcImage, srcSubresourceRange,
+        srcImage->info().layout,
+        srcImage->info().stages,
+        srcImage->info().access,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_READ_BIT);
+      m_barriers.recordCommands(m_cmd);
+      
+      VkImageResolve imageRegion;
+      imageRegion.srcSubresource = srcSubresources;
+      imageRegion.srcOffset      = VkOffset3D { 0, 0, 0 };
+      imageRegion.dstSubresource = dstSubresources;
+      imageRegion.dstOffset      = VkOffset3D { 0, 0, 0 };
+      imageRegion.extent         = srcImage->mipLevelExtent(srcSubresources.mipLevel);
+      
+      m_cmd->cmdResolveImage(
+        srcImage->handle(),
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        dstImage->handle(),
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1, &imageRegion);
     
-    VkImageResolve imageRegion;
-    imageRegion.srcSubresource = srcSubresources;
-    imageRegion.srcOffset      = VkOffset3D { 0, 0, 0 };
-    imageRegion.dstSubresource = dstSubresources;
-    imageRegion.dstOffset      = VkOffset3D { 0, 0, 0 };
-    imageRegion.extent         = srcImage->mipLevelExtent(srcSubresources.mipLevel);
-    
-    m_cmd->cmdResolveImage(
-      srcImage->handle(),
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      dstImage->handle(),
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      1, &imageRegion);
-    
-    m_barriers.accessImage(
-      dstImage, dstSubresourceRange,
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_TRANSFER_WRITE_BIT,
-      dstImage->info().layout,
-      dstImage->info().stages,
-      dstImage->info().access);
-    m_barriers.accessImage(
-      srcImage, srcSubresourceRange,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_TRANSFER_READ_BIT,
-      srcImage->info().layout,
-      srcImage->info().stages,
-      srcImage->info().access);
-    m_barriers.recordCommands(m_cmd);
+      m_barriers.accessImage(
+        dstImage, dstSubresourceRange,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        dstImage->info().layout,
+        dstImage->info().stages,
+        dstImage->info().access);
+      m_barriers.accessImage(
+        srcImage, srcSubresourceRange,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_READ_BIT,
+        srcImage->info().layout,
+        srcImage->info().stages,
+        srcImage->info().access);
+      m_barriers.recordCommands(m_cmd);
+    } else {
+      // The trick here is to submit an empty render pass which
+      // performs the resolve op on properly typed image views.
+      const Rc<DxvkMetaResolveFramebuffer> fb =
+        new DxvkMetaResolveFramebuffer(m_device->vkd(),
+          dstImage, dstSubresources,
+          srcImage, srcSubresources, format);
+      
+      VkRenderPassBeginInfo info;
+      info.sType            = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      info.pNext            = nullptr;
+      info.renderPass       = fb->renderPass();
+      info.framebuffer      = fb->framebuffer();
+      info.renderArea       = VkRect2D { { 0, 0 }, {
+        dstImage->info().extent.width,
+        dstImage->info().extent.height } };
+      info.clearValueCount  = 0;
+      info.pClearValues     = nullptr;
+      
+      m_cmd->cmdBeginRenderPass(&info, VK_SUBPASS_CONTENTS_INLINE);
+      m_cmd->cmdEndRenderPass();
+      
+      m_cmd->trackResource(fb);
+    }
   }
   
   

@@ -6,6 +6,7 @@
 #include "dxvk_context_state.h"
 #include "dxvk_data.h"
 #include "dxvk_event.h"
+#include "dxvk_meta_resolve.h"
 #include "dxvk_query.h"
 #include "dxvk_query_pool.h"
 #include "dxvk_util.h"
@@ -405,17 +406,22 @@ namespace dxvk {
      * 
      * Resolves a multisampled image into a non-multisampled
      * image. The subresources of both images must have the
-     * same size and compatible formats
+     * same size and compatible formats.
+     * A format can be specified for the resolve operation.
+     * If it is \c VK_FORMAT_UNDEFINED, the resolve operation
+     * will use the source image format.
      * \param [in] dstImage Destination image
      * \param [in] dstSubresources Subresources to write to
      * \param [in] srcImage Source image
      * \param [in] srcSubresources Subresources to read from
+     * \param [in] format Format for the resolve operation
      */
     void resolveImage(
       const Rc<DxvkImage>&            dstImage,
       const VkImageSubresourceLayers& dstSubresources,
       const Rc<DxvkImage>&            srcImage,
-      const VkImageSubresourceLayers& srcSubresources);
+      const VkImageSubresourceLayers& srcSubresources,
+            VkFormat                  format);
     
     /**
      * \brief Updates a buffer
