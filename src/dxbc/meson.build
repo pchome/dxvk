@@ -15,7 +15,7 @@ dxbc_src = files([
 
 if (get_option('wine-build'))
 dxbc_lib = static_library('dxbc', dxbc_src,
-  dependencies : [ spirv_dep ],
+#  dependencies : [ spirv_dep ],
   include_directories : [ dxvk_include_path ])
 else
 dxbc_lib = static_library('dxbc', dxbc_src,
