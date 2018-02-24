@@ -35,20 +35,59 @@ namespace dxvk {
     const std::string dumpPath = "dxvk_shader_dump";
     const std::string readPath = "dxvk_shader_read";
 #endif
-    if (dumpPath.size() != 0) {
-      reader.store(std::ofstream(str::format(dumpPath, "/", m_name, ".dxbc"),
-        std::ios_base::binary | std::ios_base::trunc));
+
+    const std::string dxbcFileName    = str::format(dumpPath, "/", m_name, ".dxbc");
+    const std::string spvFileName     = str::format(dumpPath, "/", m_name, ".spv");
+    const std::string spvReadFileName = str::format(readPath, "/", m_name, ".spv");
+
+    bool dxbcExists    = std::ifstream(dxbcFileName.c_str()).good();
+    bool spvExists     = std::ifstream(spvFileName.c_str()).good();
+    bool spvReadExists = std::ifstream(spvReadFileName.c_str()).good();
+
+
+    Logger::debug(str::format("DXBC:", dxbcExists, " - SPV:", spvExists, " - SPV-opt:", spvReadExists));
+    // read spv
+    if(spvReadExists) {
+      std::ifstream readStream(spvReadFileName, std::ios_base::binary);
+      if (readStream) {
+        m_shader = module.compile(*pDxbcOptions);
+        m_shader->setDebugName(m_name);
+
+        m_shader->read(std::move(readStream));
+        Logger::debug("EARLY overrided");
+      }
+      return;
+    }
+
+    // dump dxbc
+    if (dumpPath.size() != 0 && !dxbcExists) {
+      reader.store(std::ofstream(dxbcFileName, std::ios_base::binary | std::ios_base::trunc));
+      dxbcExists = true;
     }
 
     m_shader = module.compile(*pDxbcOptions);
     m_shader->setDebugName(m_name);
 
+    // dump clean spv
+    if (dumpPath.size() != 0 && !spvExists) {
+      m_shader->dump(std::ofstream(spvFileName, std::ios_base::binary | std::ios_base::trunc));
+      spvExists = true;
+    }
+
 #ifdef WANT_ENV
     // FIXME this is currently way too slow to be viable
     // as a default option, but may help Nvidia users.
     if (env::getEnvVar(L"DXVK_SHADER_OPTIMIZE") == "1") {
-      if (!m_shader->optimize())
+      if (!m_shader->optimize()) {
         Logger::warn(str::format("Failed to optimize: ", m_name));
+      } else {
+        // dump optimized spv
+        if (readPath.size() != 0 && !spvReadExists) {
+          m_shader->dump(std::ofstream(spvReadFileName, std::ios_base::binary | std::ios_base::trunc));
+          spvReadExists = true;
+        }
+      }
+
     }
 
     if (env::getEnvVar(L"DXVK_SHADER_VALIDATE") == "1") {
@@ -58,17 +97,20 @@ namespace dxvk {
 #else
     if (!m_shader->optimize()) {
       Logger::warn(str::format("Failed to optimize: ", m_name));
+    } else {
+      // dump optimized spv
+      if (readPath.size() != 0 && !spvReadExists) {
+        m_shader->dump(std::ofstream(spvReadFileName, std::ios_base::binary | std::ios_base::trunc));
+        spvReadExists = true;
+      }
     }
 #endif
 
-    if (dumpPath.size() != 0) {
-      m_shader->dump(std::ofstream(str::format(dumpPath, "/", m_name, ".spv"),
-        std::ios_base::binary | std::ios_base::trunc));
-    }
 
+/*
     // If requested by the user, replace
     // the shader with another file.
-    if (readPath.size() != 0) {
+    if (readPath.size() != 0 && spvReadExists) {
       // Check whether the file exists
       std::ifstream readStream(
         str::format(readPath, "/", m_name, ".spv"),
@@ -77,6 +119,7 @@ namespace dxvk {
       if (readStream)
         m_shader->read(std::move(readStream));
     }
+*/
   }
 
 
