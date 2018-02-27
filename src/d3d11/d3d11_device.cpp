@@ -75,15 +75,20 @@ namespace dxvk {
     const D3D11_BUFFER_DESC*      pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
           ID3D11Buffer**          ppBuffer) {
-    if (ppBuffer != nullptr) {
+    if (ppBuffer == nullptr)
+      return S_FALSE;
+    
+    try {
       const Com<D3D11Buffer> buffer
         = new D3D11Buffer(this, pDesc);
       
       this->InitBuffer(buffer.ptr(), pInitialData);
       *ppBuffer = buffer.ref();
+      return S_OK;
+    } catch (const DxvkError& e) {
+      Logger::err(e.message());
+      return E_FAIL;
     }
-    
-    return S_OK;
   }
   
   
@@ -91,15 +96,20 @@ namespace dxvk {
     const D3D11_TEXTURE1D_DESC*   pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
           ID3D11Texture1D**       ppTexture1D) {
-    if (ppTexture1D != nullptr) {
+    if (ppTexture1D == nullptr)
+      return S_FALSE;
+    
+    try {
       const Com<D3D11Texture1D> texture
         = new D3D11Texture1D(this, pDesc);
       
       this->InitTexture(texture->GetTextureInfo()->image, pInitialData);
       *ppTexture1D = texture.ref();
+      return S_OK;
+    } catch (const DxvkError& e) {
+      Logger::err(e.message());
+      return E_FAIL;
     }
-    
-    return S_OK;
   }
   
   
@@ -107,15 +117,20 @@ namespace dxvk {
     const D3D11_TEXTURE2D_DESC*   pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
           ID3D11Texture2D**       ppTexture2D) {
-    if (ppTexture2D != nullptr) {
+    if (ppTexture2D == nullptr)
+      return S_FALSE;
+    
+    try {
       const Com<D3D11Texture2D> texture
         = new D3D11Texture2D(this, pDesc);
       
       this->InitTexture(texture->GetTextureInfo()->image, pInitialData);
       *ppTexture2D = texture.ref();
+      return S_OK;
+    } catch (const DxvkError& e) {
+      Logger::err(e.message());
+      return E_FAIL;
     }
-    
-    return S_OK;
   }
   
   
@@ -123,15 +138,20 @@ namespace dxvk {
     const D3D11_TEXTURE3D_DESC*   pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
           ID3D11Texture3D**       ppTexture3D) {
-    if (ppTexture3D != nullptr) {
+    if (ppTexture3D == nullptr)
+      return S_FALSE;
+      
+    try {
       const Com<D3D11Texture3D> texture
         = new D3D11Texture3D(this, pDesc);
       
       this->InitTexture(texture->GetTextureInfo()->image, pInitialData);
       *ppTexture3D = texture.ref();
+      return S_OK;
+    } catch (const DxvkError& e) {
+      Logger::err(e.message());
+      return E_FAIL;
     }
-    
-    return S_OK;
   }
   
   
@@ -945,9 +965,10 @@ namespace dxvk {
           ID3D11HullShader**          ppHullShader) {
     D3D11ShaderModule module;
     
-    if (FAILED(this->CreateShaderModule(&module,
-        pShaderBytecode, BytecodeLength, pClassLinkage)))
-      return E_INVALIDARG;
+    Logger::warn("D3D11: CreateHullShader: Tessellation shaders not yet supported");
+//     if (FAILED(this->CreateShaderModule(&module,
+//         pShaderBytecode, BytecodeLength, pClassLinkage)))
+//       return E_INVALIDARG;
     
     if (ppHullShader == nullptr)
       return S_FALSE;
@@ -965,9 +986,10 @@ namespace dxvk {
           ID3D11DomainShader**        ppDomainShader) {
     D3D11ShaderModule module;
     
-    if (FAILED(this->CreateShaderModule(&module,
-        pShaderBytecode, BytecodeLength, pClassLinkage)))
-      return E_INVALIDARG;
+    Logger::warn("D3D11: CreateDomainShader: Tessellation shaders not yet supported");
+//     if (FAILED(this->CreateShaderModule(&module,
+//         pShaderBytecode, BytecodeLength, pClassLinkage)))
+//       return E_INVALIDARG;
     
     if (ppDomainShader == nullptr)
       return S_FALSE;
