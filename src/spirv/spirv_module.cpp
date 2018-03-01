@@ -547,10 +547,13 @@ namespace dxvk {
           spv::StorageClass       storageClass) {
     uint32_t resultId = this->allocateId();
     
-    m_variables.putIns  (spv::OpVariable, 4);
-    m_variables.putWord (pointerType);
-    m_variables.putWord (resultId);
-    m_variables.putWord (storageClass);
+    auto& code = storageClass != spv::StorageClassFunction
+      ? m_variables : m_code;
+    
+    code.putIns  (spv::OpVariable, 4);
+    code.putWord (pointerType);
+    code.putWord (resultId);
+    code.putWord (storageClass);
     return resultId;
   }
   
@@ -561,11 +564,14 @@ namespace dxvk {
           uint32_t                initialValue) {
     uint32_t resultId = this->allocateId();
     
-    m_variables.putIns  (spv::OpVariable, 5);
-    m_variables.putWord (pointerType);
-    m_variables.putWord (resultId);
-    m_variables.putWord (storageClass);
-    m_variables.putWord (initialValue);
+    auto& code = storageClass != spv::StorageClassFunction
+      ? m_variables : m_code;
+    
+    code.putIns  (spv::OpVariable, 5);
+    code.putWord (pointerType);
+    code.putWord (resultId);
+    code.putWord (storageClass);
+    code.putWord (initialValue);
     return resultId;
   }
   
@@ -2752,7 +2758,8 @@ namespace dxvk {
     // we can use the code buffer to look up type IDs as
     // well. Result IDs are always stored as argument 1.
     for (auto ins : m_typeConstDefs) {
-      bool match = ins.opCode() == op;
+      bool match = ins.opCode() == op
+                && ins.length() == 2 + argCount;
       
       for (uint32_t i = 0; i < argCount && match; i++)
         match &= ins.arg(2 + i) == argIds[i];

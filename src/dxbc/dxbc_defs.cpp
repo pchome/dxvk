@@ -562,13 +562,13 @@ namespace dxvk {
     /* Reserved1                            */
     { },
     /* HsDecls                              */
-    { },
+    { 0, DxbcInstClass::HullShaderPhase },
     /* HsControlPointPhase                  */
-    { },
+    { 0, DxbcInstClass::HullShaderPhase },
     /* HsForkPhase                          */
-    { },
+    { 0, DxbcInstClass::HullShaderPhase },
     /* HsJoinPhase                          */
-    { },
+    { 0, DxbcInstClass::HullShaderPhase },
     /* EmitStream                           */
     { 1, DxbcInstClass::GeometryEmit, {
       { DxbcOperandKind::DstReg, DxbcScalarType::Uint32  },
@@ -728,9 +728,13 @@ namespace dxvk {
     /* DclHsMaxTessFactor                   */
     { },
     /* DclHsForkPhaseInstanceCount          */
-    { },
+    { 1, DxbcInstClass::HullShaderInstCnt, {
+      { DxbcOperandKind::Imm32, DxbcScalarType::Uint32  },
+    } },
     /* DclHsJoinPhaseInstanceCount          */
-    { },
+    { 1, DxbcInstClass::HullShaderInstCnt, {
+      { DxbcOperandKind::Imm32, DxbcScalarType::Uint32  },
+    } },
     /* DclThreadGroup                       */
     { 3, DxbcInstClass::Declaration, {
       { DxbcOperandKind::Imm32, DxbcScalarType::Uint32 },
