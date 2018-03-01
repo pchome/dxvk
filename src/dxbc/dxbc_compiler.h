@@ -196,8 +196,11 @@ namespace dxvk {
    * \brief Hull shader-specific structure
    */
   struct DxbcCompilerHsPart {
-    DxbcCompilerHsPhase currPhaseType = DxbcCompilerHsPhase::None;
-    size_t              currPhaseId   = 0;
+    DxbcCompilerHsPhase currPhaseType   = DxbcCompilerHsPhase::None;
+    size_t              currPhaseId     = 0;
+    
+    uint32_t            vertexCountIn   = 0;
+    uint32_t            vertexCountOut  = 0;
     
     DxbcCompilerHsControlPointPhase          cpPhase;
     std::vector<DxbcCompilerHsForkJoinPhase> forkPhases;
@@ -453,6 +456,21 @@ namespace dxvk {
       const DxbcShaderInstruction&  ins);
     
     void emitDclMaxOutputVertexCount(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitDclInputControlPointCount(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitDclOutputControlPointCount(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitDclTessDomain(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitDclTessPartitioning(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitDclTessOutputPrimitive(
       const DxbcShaderInstruction&  ins);
     
     void emitDclThreadGroup(

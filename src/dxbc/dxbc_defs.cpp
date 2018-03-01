@@ -716,15 +716,15 @@ namespace dxvk {
     /* DclInterface                         */
     { },
     /* DclInputControlPointCount            */
-    { },
+    { 0, DxbcInstClass::Declaration },
     /* DclOutputControlPointCount           */
-    { },
+    { 0, DxbcInstClass::Declaration },
     /* DclTessDomain                        */
-    { },
+    { 0, DxbcInstClass::Declaration },
     /* DclTessPartitioning                  */
-    { },
+    { 0, DxbcInstClass::Declaration },
     /* DclTessOutputPrimitive               */
-    { },
+    { 0, DxbcInstClass::Declaration },
     /* DclHsMaxTessFactor                   */
     { },
     /* DclHsForkPhaseInstanceCount          */

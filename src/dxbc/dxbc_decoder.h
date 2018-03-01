@@ -251,6 +251,10 @@ namespace dxvk {
     DxbcSamplerMode       samplerMode;
     DxbcPrimitiveTopology primitiveTopology;
     DxbcPrimitive         primitive;
+    DxbcTessDomain        tessDomain;
+    DxbcTessOutputPrimitive tessOutputPrimitive;
+    DxbcTessPartitioning  tessPartitioning;
+    uint32_t              controlPointCount;
   };
   
   
