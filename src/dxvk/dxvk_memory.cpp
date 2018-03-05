@@ -162,9 +162,12 @@ namespace dxvk {
     // chunks since that might lead to severe fragmentation.
     if (size >= (m_chunkSize / 4)) {
       VkDeviceMemory memory = this->allocDeviceMemory(size);
-      void*          mapPtr = this->mapDeviceMemory(memory);
       
-      return DxvkMemory(nullptr, this, memory, 0, size, mapPtr);
+      if (memory == VK_NULL_HANDLE)
+        return DxvkMemory();
+      
+      return DxvkMemory(nullptr, this, memory,
+        0, size, this->mapDeviceMemory(memory));
     } else {
       std::lock_guard<std::mutex> lock(m_mutex);
       
@@ -179,10 +182,12 @@ namespace dxvk {
       // None of the existing chunks could satisfy
       // the request, we need to create a new one
       VkDeviceMemory chunkMem = this->allocDeviceMemory(m_chunkSize);
-      void*          chunkPtr = this->mapDeviceMemory(chunkMem);
       
-      Rc<DxvkMemoryChunk> newChunk = new DxvkMemoryChunk(
-        this, chunkMem, chunkPtr, m_chunkSize);
+      if (chunkMem == VK_NULL_HANDLE)
+        return DxvkMemory();
+      
+      Rc<DxvkMemoryChunk> newChunk = new DxvkMemoryChunk(this,
+        chunkMem, this->mapDeviceMemory(chunkMem), m_chunkSize);
       DxvkMemory memory = newChunk->alloc(size, align);
       
       m_chunks.push_back(std::move(newChunk));
@@ -255,22 +260,35 @@ namespace dxvk {
   DxvkMemory DxvkMemoryAllocator::alloc(
     const VkMemoryRequirements& req,
     const VkMemoryPropertyFlags flags) {
+    DxvkMemory result = this->tryAlloc(req, flags);
     
-    for (uint32_t i = 0; i < m_heaps.size(); i++) {
+    if ((result.memory() == VK_NULL_HANDLE) && (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+      result = this->tryAlloc(req, flags & ~VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
+    if (result.memory() == VK_NULL_HANDLE) {
+      throw DxvkError(str::format(
+        "DxvkMemoryAllocator: Failed to allocate ",
+        req.size, " bytes"));
+    }
+    
+    return result;
+  }
+  
+  
+  DxvkMemory DxvkMemoryAllocator::tryAlloc(
+    const VkMemoryRequirements& req,
+    const VkMemoryPropertyFlags flags) {
+    DxvkMemory result;
+    
+    for (uint32_t i = 0; i < m_heaps.size() && result.memory() == VK_NULL_HANDLE; i++) {
       const bool supported = (req.memoryTypeBits & (1u << i)) != 0;
       const bool adequate  = (m_memProps.memoryTypes[i].propertyFlags & flags) == flags;
       
-      if (supported && adequate) {
-        DxvkMemory memory = m_heaps[i]->alloc(req.size, req.alignment);
-        
-        if (memory.memory() != VK_NULL_HANDLE)
-          return memory;
-      }
+      if (supported && adequate)
+        result = m_heaps[i]->alloc(req.size, req.alignment);
     }
     
-    throw DxvkError(str::format(
-      "DxvkMemoryAllocator: Failed to allocate ",
-      req.size, " bytes"));
+    return result;
   }
   
 }

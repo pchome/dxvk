@@ -4,10 +4,11 @@
 
 #include "dxvk_binding.h"
 #include "dxvk_descriptor.h"
+#include "dxvk_event_tracker.h"
 #include "dxvk_lifetime.h"
 #include "dxvk_limits.h"
 #include "dxvk_pipelayout.h"
-#include "dxvk_query_pool.h"
+#include "dxvk_query_tracker.h"
 #include "dxvk_staging.h"
 
 namespace dxvk {
@@ -81,8 +82,39 @@ namespace dxvk {
      * finished executing on the GPU.
      * \param [in] queries The query range
      */
-    void trackQueryRange(const DxvkQueryRange& queries) {
-      m_queryRanges.push_back(queries);
+    void trackQueryRange(DxvkQueryRange&& queries) {
+      m_queryTracker.trackQueryRange(std::move(queries));
+    }
+    
+    /**
+     * \brief Adds an event revision to track
+     * 
+     * The event will be signaled after the command
+     * buffer has finished executing on the GPU.
+     */
+    void trackEvent(const DxvkEventRevision& event) {
+      m_eventTracker.trackEvent(event);
+    }
+    
+    /**
+     * \brief Signals tracked events
+     * 
+     * Marks all tracked events as signaled. Call this after
+     * synchronizing with a fence for this command list.
+     */
+    void signalEvents() {
+      m_eventTracker.signalEvents();
+    }
+    
+    /**
+     * \brief Writes back query results
+     * 
+     * Writes back query data to all queries tracked by the
+     * query range tracker. Call this after synchronizing
+     * with a fence for this command list.
+     */
+    void writeQueryData() {
+      m_queryTracker.writeQueryData();
     }
     
     /**
@@ -94,6 +126,7 @@ namespace dxvk {
      * the command list completes execution.
      */
     void reset();
+    
     
     VkDescriptorSet allocateDescriptorSet(
             VkDescriptorSetLayout   descriptorLayout) {
@@ -473,8 +506,8 @@ namespace dxvk {
     DxvkLifetimeTracker m_resources;
     DxvkDescriptorAlloc m_descAlloc;
     DxvkStagingAlloc    m_stagingAlloc;
-    
-    std::vector<DxvkQueryRange> m_queryRanges;
+    DxvkQueryTracker    m_queryTracker;
+    DxvkEventTracker    m_eventTracker;
     
   };
   

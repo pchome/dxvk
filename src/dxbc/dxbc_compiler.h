@@ -160,8 +160,9 @@ namespace dxvk {
    */
   struct DxbcCompilerHsForkJoinPhase {
     uint32_t functionId         = 0;
-    uint32_t instanceCount      = 0;
-    uint32_t builtinInstanceId  = 0;
+    uint32_t instanceCount      = 1;
+    uint32_t instanceId         = 0;
+    uint32_t instanceIdPtr      = 0;
   };
   
   
@@ -195,8 +196,11 @@ namespace dxvk {
    * \brief Hull shader-specific structure
    */
   struct DxbcCompilerHsPart {
-    DxbcCompilerHsPhase currPhaseType = DxbcCompilerHsPhase::None;
-    size_t              currPhaseId   = 0;
+    DxbcCompilerHsPhase currPhaseType   = DxbcCompilerHsPhase::None;
+    size_t              currPhaseId     = 0;
+    
+    uint32_t            vertexCountIn   = 0;
+    uint32_t            vertexCountOut  = 0;
     
     DxbcCompilerHsControlPointPhase          cpPhase;
     std::vector<DxbcCompilerHsForkJoinPhase> forkPhases;
@@ -454,6 +458,21 @@ namespace dxvk {
     void emitDclMaxOutputVertexCount(
       const DxbcShaderInstruction&  ins);
     
+    void emitDclInputControlPointCount(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitDclOutputControlPointCount(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitDclTessDomain(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitDclTessPartitioning(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitDclTessOutputPrimitive(
+      const DxbcShaderInstruction&  ins);
+    
     void emitDclThreadGroup(
       const DxbcShaderInstruction&  ins);
     
@@ -525,6 +544,15 @@ namespace dxvk {
       const DxbcShaderInstruction&  ins);
     
     void emitConvertFloat16(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitHullShaderPhase(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitHullShaderInstCnt(
+      const DxbcShaderInstruction&  ins);
+    
+    void emitInterpolate(
       const DxbcShaderInstruction&  ins);
     
     void emitTextureQuery(
@@ -645,6 +673,10 @@ namespace dxvk {
             DxbcRegisterValue       dstValue,
             DxbcRegisterValue       srcValue,
             DxbcRegMask             srcMask);
+    
+    DxbcRegisterValue emitRegisterConcat(
+            DxbcRegisterValue       value1,
+            DxbcRegisterValue       value2);
     
     DxbcRegisterValue emitRegisterExtend(
             DxbcRegisterValue       value,
@@ -807,6 +839,7 @@ namespace dxvk {
     
     void emitVsInit();
     void emitHsInit();
+    void emitDsInit();
     void emitGsInit();
     void emitPsInit();
     void emitCsInit();
@@ -815,9 +848,18 @@ namespace dxvk {
     // Shader finalization methods
     void emitVsFinalize();
     void emitHsFinalize();
+    void emitDsFinalize();
     void emitGsFinalize();
     void emitPsFinalize();
     void emitCsFinalize();
+    
+    ///////////////////////////////
+    // Hull shader phase methods
+    void emitHsControlPointPhase(
+      const DxbcCompilerHsControlPointPhase&  phase);
+    
+    void emitHsForkJoinPhase(
+      const DxbcCompilerHsForkJoinPhase&      phase);
     
     //////////////
     // Misc stuff
@@ -827,6 +869,8 @@ namespace dxvk {
     void emitDclInputPerVertex(
             uint32_t          vertexCount,
       const char*             varName);
+    
+    DxbcCompilerHsForkJoinPhase emitNewHullShaderForkJoinPhase();
     
     ///////////////////////////////
     // Variable definition methods
@@ -877,7 +921,7 @@ namespace dxvk {
     
     uint32_t getPerVertexBlockId();
     
-    uint32_t getPushConstantBlockId();
+    DxbcCompilerHsForkJoinPhase* getCurrentHsForkJoinPhase();
     
   };
   

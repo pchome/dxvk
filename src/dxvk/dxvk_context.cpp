@@ -58,18 +58,22 @@ namespace dxvk {
     this->renderPassEnd();
     this->endActiveQueries();
     
+    this->trackQueryPool(m_queryPools[VK_QUERY_TYPE_OCCLUSION]);
+    this->trackQueryPool(m_queryPools[VK_QUERY_TYPE_PIPELINE_STATISTICS]);
+    this->trackQueryPool(m_queryPools[VK_QUERY_TYPE_TIMESTAMP]);
+    
     m_cmd->endRecording();
     return std::exchange(m_cmd, nullptr);
   }
   
   
   void DxvkContext::beginQuery(const DxvkQueryRevision& query) {
-    DxvkQueryHandle handle = this->allocateQuery(query);
+    DxvkQueryHandle handle = this->allocQuery(query);
     
     m_cmd->cmdBeginQuery(
       handle.queryPool,
       handle.queryId,
-      0);
+      handle.flags);
     
     query.query->beginRecording(query.revision);
     this->insertActiveQuery(query);
@@ -428,13 +432,11 @@ namespace dxvk {
       dstImage->info().layout,
       dstImage->info().stages,
       dstImage->info().access);
-    
     m_barriers.accessBuffer(srcSlice,
       VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_ACCESS_TRANSFER_READ_BIT,
       srcBuffer->info().stages,
       srcBuffer->info().access);
-    
     m_barriers.recordCommands(m_cmd);
     
     m_cmd->trackResource(dstImage);
@@ -474,7 +476,6 @@ namespace dxvk {
       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
       VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_ACCESS_TRANSFER_WRITE_BIT);
-    
     m_barriers.accessImage(
       srcImage, srcSubresourceRange,
       srcImage->info().layout,
@@ -483,21 +484,75 @@ namespace dxvk {
       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
       VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_ACCESS_TRANSFER_READ_BIT);
-    
     m_barriers.recordCommands(m_cmd);
-    
-    VkImageCopy imageRegion;
-    imageRegion.srcSubresource = srcSubresource;
-    imageRegion.srcOffset      = srcOffset;
-    imageRegion.dstSubresource = dstSubresource;
-    imageRegion.dstOffset      = dstOffset;
-    imageRegion.extent         = extent;
-    
-    m_cmd->cmdCopyImage(
-      srcImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      dstImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      1, &imageRegion);
-    
+      
+    if (dstSubresource.aspectMask == srcSubresource.aspectMask) {
+      VkImageCopy imageRegion;
+      imageRegion.srcSubresource = srcSubresource;
+      imageRegion.srcOffset      = srcOffset;
+      imageRegion.dstSubresource = dstSubresource;
+      imageRegion.dstOffset      = dstOffset;
+      imageRegion.extent         = extent;
+      
+      m_cmd->cmdCopyImage(
+        srcImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        dstImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1, &imageRegion);
+    } else {
+      const VkDeviceSize transferBufferSize = std::max(
+        util::computeImageDataSize(dstImage->info().format, extent),
+        util::computeImageDataSize(srcImage->info().format, extent));
+      
+      // TODO optimize away buffer creation
+      DxvkBufferCreateInfo tmpBufferInfo;
+      tmpBufferInfo.size   = transferBufferSize;
+      tmpBufferInfo.usage  = VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+                           | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+      tmpBufferInfo.stages = VK_PIPELINE_STAGE_TRANSFER_BIT;
+      tmpBufferInfo.access = VK_ACCESS_TRANSFER_READ_BIT
+                           | VK_ACCESS_TRANSFER_WRITE_BIT;
+      
+      Rc<DxvkBuffer> tmpBuffer = m_device->createBuffer(
+        tmpBufferInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+      
+      DxvkPhysicalBufferSlice tmpSlice = tmpBuffer->slice();
+      
+      VkBufferImageCopy bufferImageCopy;
+      bufferImageCopy.bufferOffset       = tmpSlice.offset();
+      bufferImageCopy.bufferRowLength    = 0;
+      bufferImageCopy.bufferImageHeight  = 0;
+      bufferImageCopy.imageSubresource   = srcSubresource;
+      bufferImageCopy.imageOffset        = srcOffset;
+      bufferImageCopy.imageExtent        = extent;
+      
+      m_cmd->cmdCopyImageToBuffer(
+        srcImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        tmpSlice.handle(), 1, &bufferImageCopy);
+      
+      m_barriers.accessBuffer(tmpSlice,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_READ_BIT);
+      m_barriers.recordCommands(m_cmd);
+      
+      bufferImageCopy.imageSubresource   = dstSubresource;
+      bufferImageCopy.imageOffset        = dstOffset;
+      
+      m_cmd->cmdCopyBufferToImage(
+        tmpSlice.handle(), dstImage->handle(),
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1, &bufferImageCopy);
+      
+      m_barriers.accessBuffer(tmpSlice,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_READ_BIT,
+        tmpBuffer->info().stages,
+        tmpBuffer->info().access);
+      
+      m_cmd->trackResource(tmpSlice.resource());
+    }
+      
     m_barriers.accessImage(
       dstImage, dstSubresourceRange,
       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -506,7 +561,6 @@ namespace dxvk {
       dstImage->info().layout,
       dstImage->info().stages,
       dstImage->info().access);
-    
     m_barriers.accessImage(
       srcImage, srcSubresourceRange,
       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -515,7 +569,6 @@ namespace dxvk {
       srcImage->info().layout,
       srcImage->info().stages,
       srcImage->info().access);
-    
     m_barriers.recordCommands(m_cmd);
     
     m_cmd->trackResource(dstImage);
@@ -573,13 +626,11 @@ namespace dxvk {
       srcImage->info().layout,
       srcImage->info().stages,
       srcImage->info().access);
-
     m_barriers.accessBuffer(dstSlice,
       VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_ACCESS_TRANSFER_WRITE_BIT,
       dstBuffer->info().stages,
       dstBuffer->info().access);
-      
     m_barriers.recordCommands(m_cmd);
     
     m_cmd->trackResource(srcImage);
@@ -593,7 +644,7 @@ namespace dxvk {
           uint32_t z) {
     this->commitComputeState();
     
-    if (m_cpActivePipeline != VK_NULL_HANDLE) {
+    if (this->validateComputeState()) {
       m_cmd->cmdDispatch(x, y, z);
       
       this->commitComputeBarriers();
@@ -607,7 +658,7 @@ namespace dxvk {
     
     auto physicalSlice = buffer.physicalSlice();
     
-    if (m_cpActivePipeline != VK_NULL_HANDLE) {
+    if (this->validateComputeState()) {
       m_cmd->cmdDispatchIndirect(
         physicalSlice.handle(),
         physicalSlice.offset());
@@ -624,7 +675,7 @@ namespace dxvk {
           uint32_t firstInstance) {
     this->commitGraphicsState();
     
-    if (m_gpActivePipeline != VK_NULL_HANDLE) {
+    if (this->validateGraphicsState()) {
       m_cmd->cmdDraw(
         vertexCount, instanceCount,
         firstVertex, firstInstance);
@@ -638,7 +689,7 @@ namespace dxvk {
           uint32_t          stride) {
     this->commitGraphicsState();
     
-    if (m_gpActivePipeline != VK_NULL_HANDLE) {
+    if (this->validateGraphicsState()) {
       auto physicalSlice = buffer.physicalSlice();
       
       m_cmd->cmdDrawIndirect(
@@ -657,7 +708,7 @@ namespace dxvk {
           uint32_t firstInstance) {
     this->commitGraphicsState();
     
-    if (m_gpActivePipeline != VK_NULL_HANDLE) {
+    if (this->validateGraphicsState()) {
       m_cmd->cmdDrawIndexed(
         indexCount, instanceCount,
         firstIndex, vertexOffset,
@@ -672,7 +723,7 @@ namespace dxvk {
           uint32_t          stride) {
     this->commitGraphicsState();
     
-    if (m_gpActivePipeline != VK_NULL_HANDLE) {
+    if (this->validateGraphicsState()) {
       auto physicalSlice = buffer.physicalSlice();
       
       m_cmd->cmdDrawIndexedIndirect(
@@ -846,72 +897,104 @@ namespace dxvk {
     const Rc<DxvkImage>&            dstImage,
     const VkImageSubresourceLayers& dstSubresources,
     const Rc<DxvkImage>&            srcImage,
-    const VkImageSubresourceLayers& srcSubresources) {
+    const VkImageSubresourceLayers& srcSubresources,
+          VkFormat                  format) {
     this->renderPassEnd();
-
-    VkImageSubresourceRange dstSubresourceRange = {
-      dstSubresources.aspectMask,
-      dstSubresources.mipLevel, 1,
-      dstSubresources.baseArrayLayer,
-      dstSubresources.layerCount };
     
-    VkImageSubresourceRange srcSubresourceRange = {
-      srcSubresources.aspectMask,
-      srcSubresources.mipLevel, 1,
-      srcSubresources.baseArrayLayer,
-      srcSubresources.layerCount };
+    if (format == VK_FORMAT_UNDEFINED)
+      format = srcImage->info().format;
     
-    // We only support resolving to the entire image
-    // area, so we might as well discard its contents
-    m_barriers.accessImage(
-      dstImage, dstSubresourceRange,
-      VK_IMAGE_LAYOUT_UNDEFINED,
-      dstImage->info().stages,
-      dstImage->info().access,
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_TRANSFER_WRITE_BIT);
-    m_barriers.accessImage(
-      srcImage, srcSubresourceRange,
-      srcImage->info().layout,
-      srcImage->info().stages,
-      srcImage->info().access,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_TRANSFER_READ_BIT);
-    m_barriers.recordCommands(m_cmd);
+    if (dstImage->info().format == format
+     && srcImage->info().format == format) {
+      // Use the built-in Vulkan resolve function if the image
+      // formats both match the format of the resolve operation.
+      VkImageSubresourceRange dstSubresourceRange = {
+        dstSubresources.aspectMask,
+        dstSubresources.mipLevel, 1,
+        dstSubresources.baseArrayLayer,
+        dstSubresources.layerCount };
+      
+      VkImageSubresourceRange srcSubresourceRange = {
+        srcSubresources.aspectMask,
+        srcSubresources.mipLevel, 1,
+        srcSubresources.baseArrayLayer,
+        srcSubresources.layerCount };
+      
+      // We only support resolving to the entire image
+      // area, so we might as well discard its contents
+      m_barriers.accessImage(
+        dstImage, dstSubresourceRange,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        dstImage->info().stages,
+        dstImage->info().access,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_WRITE_BIT);
+      m_barriers.accessImage(
+        srcImage, srcSubresourceRange,
+        srcImage->info().layout,
+        srcImage->info().stages,
+        srcImage->info().access,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_READ_BIT);
+      m_barriers.recordCommands(m_cmd);
+      
+      VkImageResolve imageRegion;
+      imageRegion.srcSubresource = srcSubresources;
+      imageRegion.srcOffset      = VkOffset3D { 0, 0, 0 };
+      imageRegion.dstSubresource = dstSubresources;
+      imageRegion.dstOffset      = VkOffset3D { 0, 0, 0 };
+      imageRegion.extent         = srcImage->mipLevelExtent(srcSubresources.mipLevel);
+      
+      m_cmd->cmdResolveImage(
+        srcImage->handle(),
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        dstImage->handle(),
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1, &imageRegion);
     
-    VkImageResolve imageRegion;
-    imageRegion.srcSubresource = srcSubresources;
-    imageRegion.srcOffset      = VkOffset3D { 0, 0, 0 };
-    imageRegion.dstSubresource = dstSubresources;
-    imageRegion.dstOffset      = VkOffset3D { 0, 0, 0 };
-    imageRegion.extent         = srcImage->mipLevelExtent(srcSubresources.mipLevel);
-    
-    m_cmd->cmdResolveImage(
-      srcImage->handle(),
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      dstImage->handle(),
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      1, &imageRegion);
-    
-    m_barriers.accessImage(
-      dstImage, dstSubresourceRange,
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_TRANSFER_WRITE_BIT,
-      dstImage->info().layout,
-      dstImage->info().stages,
-      dstImage->info().access);
-    m_barriers.accessImage(
-      srcImage, srcSubresourceRange,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_TRANSFER_READ_BIT,
-      srcImage->info().layout,
-      srcImage->info().stages,
-      srcImage->info().access);
-    m_barriers.recordCommands(m_cmd);
+      m_barriers.accessImage(
+        dstImage, dstSubresourceRange,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        dstImage->info().layout,
+        dstImage->info().stages,
+        dstImage->info().access);
+      m_barriers.accessImage(
+        srcImage, srcSubresourceRange,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_READ_BIT,
+        srcImage->info().layout,
+        srcImage->info().stages,
+        srcImage->info().access);
+      m_barriers.recordCommands(m_cmd);
+    } else {
+      // The trick here is to submit an empty render pass which
+      // performs the resolve op on properly typed image views.
+      const Rc<DxvkMetaResolveFramebuffer> fb =
+        new DxvkMetaResolveFramebuffer(m_device->vkd(),
+          dstImage, dstSubresources,
+          srcImage, srcSubresources, format);
+      
+      VkRenderPassBeginInfo info;
+      info.sType            = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      info.pNext            = nullptr;
+      info.renderPass       = fb->renderPass();
+      info.framebuffer      = fb->framebuffer();
+      info.renderArea       = VkRect2D { { 0, 0 }, {
+        dstImage->info().extent.width,
+        dstImage->info().extent.height } };
+      info.clearValueCount  = 0;
+      info.pClearValues     = nullptr;
+      
+      m_cmd->cmdBeginRenderPass(&info, VK_SUBPASS_CONTENTS_INLINE);
+      m_cmd->cmdEndRenderPass();
+      
+      m_cmd->trackResource(fb);
+    }
   }
   
   
@@ -1197,8 +1280,13 @@ namespace dxvk {
   }
   
   
+  void DxvkContext::signalEvent(const DxvkEventRevision& event) {
+    m_cmd->trackEvent(event);
+  }
+  
+  
   void DxvkContext::writeTimestamp(const DxvkQueryRevision& query) {
-    DxvkQueryHandle handle = this->allocateQuery(query);
+    DxvkQueryHandle handle = this->allocQuery(query);
     
     m_cmd->cmdWriteTimestamp(
       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
@@ -1421,7 +1509,7 @@ namespace dxvk {
             m_descInfos[i].image.imageLayout = res.imageView->imageInfo().layout;
             
             // TODO try to reduce the runtime overhead of all these comparisons
-            if (bindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+            if (bindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS && m_state.om.framebuffer != nullptr) {
               DxvkAttachment depthAttachment = m_state.om.framebuffer->renderTargets().getDepthTarget();
               
               if (depthAttachment.view != nullptr
@@ -1556,6 +1644,22 @@ namespace dxvk {
   }
   
   
+  bool DxvkContext::validateComputeState() {
+    return m_cpActivePipeline != VK_NULL_HANDLE;
+  }
+  
+  
+  bool DxvkContext::validateGraphicsState() {
+    if (m_gpActivePipeline == VK_NULL_HANDLE)
+      return false;
+    
+    if (!m_flags.test(DxvkContextFlag::GpRenderPassBound))
+      return false;
+    
+    return true;
+  }
+  
+  
   void DxvkContext::commitComputeState() {
     this->renderPassEnd();
     this->updateComputePipeline();
@@ -1624,9 +1728,27 @@ namespace dxvk {
   
   
     
-  DxvkQueryHandle DxvkContext::allocateQuery(const DxvkQueryRevision& query) {
-    // TODO implement
-    return DxvkQueryHandle();
+  DxvkQueryHandle DxvkContext::allocQuery(const DxvkQueryRevision& query) {
+    const VkQueryType queryType = query.query->type();
+    
+    DxvkQueryHandle queryHandle = DxvkQueryHandle();
+    Rc<DxvkQueryPool> queryPool = m_queryPools[queryType];
+    
+    if (queryPool != nullptr)
+      queryHandle = queryPool->allocQuery(query);
+    
+    if (queryHandle.queryPool == VK_NULL_HANDLE) {
+      if (queryPool != nullptr)
+        this->trackQueryPool(queryPool);
+      
+      m_queryPools[queryType] = m_device->createQueryPool(queryType, MaxNumQueryCountPerPool);
+      queryPool = m_queryPools[queryType];
+      
+      this->resetQueryPool(queryPool);
+      queryHandle = queryPool->allocQuery(query);
+    }
+    
+    return queryHandle;
   }
   
   
@@ -1637,14 +1759,24 @@ namespace dxvk {
   }
   
   
+  void DxvkContext::trackQueryPool(const Rc<DxvkQueryPool>& pool) {
+    if (pool != nullptr) {
+      DxvkQueryRange range = pool->getActiveQueryRange();
+      
+      if (range.queryCount > 0)
+        m_cmd->trackQueryRange(std::move(range));
+    }
+  }
+  
+  
   void DxvkContext::beginActiveQueries() {
     for (const DxvkQueryRevision& query : m_activeQueries) {
-      DxvkQueryHandle handle = this->allocateQuery(query);
+      DxvkQueryHandle handle = this->allocQuery(query);
       
       m_cmd->cmdBeginQuery(
         handle.queryPool,
         handle.queryId,
-        0);
+        handle.flags);
     }
   }
   

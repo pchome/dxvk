@@ -313,8 +313,14 @@ namespace dxvk {
 //     AddColorFormat(DXGI_FORMAT_R1_UNORM,                    VK_FORMAT_UNDEFINED);
     
     AddColorFormat        (DXGI_FORMAT_R9G9B9E5_SHAREDEXP,          VK_FORMAT_E5B9G9R9_UFLOAT_PACK32);
-//     AddColorFormat(DXGI_FORMAT_R8G8_B8G8_UNORM,             VK_FORMAT_UNDEFINED);
-//     AddColorFormat(DXGI_FORMAT_G8R8_G8B8_UNORM,             VK_FORMAT_UNDEFINED);
+    
+    AddColorFormat        (DXGI_FORMAT_R8G8_B8G8_UNORM,             VK_FORMAT_B8G8R8G8_422_UNORM_KHR,
+      { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G,
+        VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ONE });
+    
+    AddColorFormat        (DXGI_FORMAT_G8R8_G8B8_UNORM,             VK_FORMAT_G8B8G8R8_422_UNORM_KHR,
+      { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G,
+        VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ONE });
     
     AddColorFormat        (DXGI_FORMAT_B5G6R5_UNORM,                VK_FORMAT_B5G6R5_UNORM_PACK16);
     AddColorFormat        (DXGI_FORMAT_B5G5R5A1_UNORM,              VK_FORMAT_B5G5R5A1_UNORM_PACK16);
@@ -335,6 +341,8 @@ namespace dxvk {
     
 //     AddColorFormat(DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM,  VK_FORMAT_UNDEFINED);
     
+    AddColorFormat        (DXGI_FORMAT_B4G4R4A4_UNORM,              VK_FORMAT_B4G4R4A4_UNORM_PACK16);
+
     /***********************************************************************************/
     /*                           B L O C K     F O R M A T S                           */
     AddColorFormatTypeless(DXGI_FORMAT_BC1_TYPELESS,                VK_FORMAT_BC1_RGBA_UNORM_BLOCK);

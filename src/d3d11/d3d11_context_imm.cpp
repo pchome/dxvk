@@ -1,3 +1,4 @@
+#include "d3d11_cmdlist.h"
 #include "d3d11_context_imm.h"
 #include "d3d11_device.h"
 #include "d3d11_texture.h"
@@ -41,28 +42,35 @@ namespace dxvk {
   
   
   void STDMETHODCALLTYPE D3D11ImmediateContext::Flush() {
-    m_parent->FlushInitContext();
-    m_drawCount = 0;
-    
-    // Add commands to flush the threaded
-    // context, then flush the command list
-    EmitCs([dev = m_device] (DxvkContext* ctx) {
-      dev->submitCommandList(
-        ctx->endRecording(),
-        nullptr, nullptr);
+    if (m_csChunk->commandCount() != 0) {
+      m_parent->FlushInitContext();
+      m_drawCount = 0;
       
-      ctx->beginRecording(
-        dev->createCommandList());
-    });
-    
-    FlushCsChunk();
+      // Add commands to flush the threaded
+      // context, then flush the command list
+      EmitCs([dev = m_device] (DxvkContext* ctx) {
+        dev->submitCommandList(
+          ctx->endRecording(),
+          nullptr, nullptr);
+        
+        ctx->beginRecording(
+          dev->createCommandList());
+      });
+      
+      FlushCsChunk();
+    }
   }
   
   
   void STDMETHODCALLTYPE D3D11ImmediateContext::ExecuteCommandList(
           ID3D11CommandList*  pCommandList,
           WINBOOL             RestoreContextState) {
-    Logger::err("D3D11ImmediateContext::ExecuteCommandList: Not implemented");
+    static_cast<D3D11CommandList*>(pCommandList)->EmitToCsThread(&m_csThread);
+    
+    if (RestoreContextState)
+      RestoreState();
+    else
+      ClearState();
   }
   
   
@@ -140,13 +148,7 @@ namespace dxvk {
       // Mapping an image is sadly not as simple as mapping a buffer
       // because applications tend to ignore row and layer strides.
       // We use a buffer instead and then perform a copy.
-      D3D11TextureInfo* textureInfo
-        = GetCommonTextureInfo(pResource);
-      
-      if (textureInfo->imageBuffer == nullptr) {
-        Logger::err("D3D11DeviceContext: Cannot map a device-local image");
-        return E_INVALIDARG;
-      }
+      D3D11TextureInfo* textureInfo = GetCommonTextureInfo(pResource);
       
       if (pMappedResource == nullptr)
         return S_FALSE;

@@ -50,6 +50,7 @@ namespace dxvk {
     DxvkInputAssemblyState iaState;
     iaState.primitiveTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     iaState.primitiveRestart  = VK_FALSE;
+    iaState.patchVertexCount  = 0;
     m_context->setInputAssemblyState(iaState);
     
     m_context->setInputLayout(
@@ -171,7 +172,8 @@ namespace dxvk {
     if (m_backBufferResolve != nullptr) {
       m_context->resolveImage(
         m_backBufferResolve, resolveSubresources,
-        m_backBuffer,        resolveSubresources);
+        m_backBuffer,        resolveSubresources,
+        VK_FORMAT_UNDEFINED);
     }
     
     const DxvkSwapSemaphores sem = m_swapchain->getSemaphorePair();

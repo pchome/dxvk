@@ -5,6 +5,9 @@
 #include "dxvk_cmdlist.h"
 #include "dxvk_context_state.h"
 #include "dxvk_data.h"
+#include "dxvk_event.h"
+#include "dxvk_meta_resolve.h"
+#include "dxvk_query.h"
 #include "dxvk_query_pool.h"
 #include "dxvk_util.h"
 
@@ -403,17 +406,22 @@ namespace dxvk {
      * 
      * Resolves a multisampled image into a non-multisampled
      * image. The subresources of both images must have the
-     * same size and compatible formats
+     * same size and compatible formats.
+     * A format can be specified for the resolve operation.
+     * If it is \c VK_FORMAT_UNDEFINED, the resolve operation
+     * will use the source image format.
      * \param [in] dstImage Destination image
      * \param [in] dstSubresources Subresources to write to
      * \param [in] srcImage Source image
      * \param [in] srcSubresources Subresources to read from
+     * \param [in] format Format for the resolve operation
      */
     void resolveImage(
       const Rc<DxvkImage>&            dstImage,
       const VkImageSubresourceLayers& dstSubresources,
       const Rc<DxvkImage>&            srcImage,
-      const VkImageSubresourceLayers& srcSubresources);
+      const VkImageSubresourceLayers& srcSubresources,
+            VkFormat                  format);
     
     /**
      * \brief Updates a buffer
@@ -543,6 +551,13 @@ namespace dxvk {
       const DxvkBlendMode&      blendMode);
     
     /**
+     * \brief Signals an event
+     * \param [in] event The event
+     */
+    void signalEvent(
+      const DxvkEventRevision&  event);
+    
+    /**
      * \brief Writes to a timestamp query
      * \param [in] query The timestamp query
      */
@@ -558,9 +573,8 @@ namespace dxvk {
     DxvkContextState    m_state;
     DxvkBarrierSet      m_barriers;
     
-    Rc<DxvkQueryPool>   m_occlusionQueries;
-    Rc<DxvkQueryPool>   m_statisticQueries;
-    Rc<DxvkQueryPool>   m_timestampQueries;
+    // TODO implement this properly...
+    Rc<DxvkQueryPool>   m_queryPools[3] = { nullptr, nullptr, nullptr };
     
     VkPipeline m_gpActivePipeline = VK_NULL_HANDLE;
     VkPipeline m_cpActivePipeline = VK_NULL_HANDLE;
@@ -602,15 +616,21 @@ namespace dxvk {
     void updateIndexBufferBinding();
     void updateVertexBufferBindings();
     
+    bool validateComputeState();
+    bool validateGraphicsState();
+    
     void commitComputeState();
     void commitGraphicsState();
     
     void commitComputeBarriers();
     
-    DxvkQueryHandle allocateQuery(
+    DxvkQueryHandle allocQuery(
       const DxvkQueryRevision& query);
     
     void resetQueryPool(
+      const Rc<DxvkQueryPool>& pool);
+    
+    void trackQueryPool(
       const Rc<DxvkQueryPool>& pool);
     
     void beginActiveQueries();
@@ -622,6 +642,8 @@ namespace dxvk {
     
     void eraseActiveQuery(
       const DxvkQueryRevision& query);
+    
+    Rc<DxvkBuffer> getTransferBuffer(VkDeviceSize size);
     
   };
   
