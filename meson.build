@@ -40,6 +40,8 @@ else
   else
     target_arch = '-m32'
   endif
+
+  subdir('linux')
 endif
 
 if (get_option('hud'))
