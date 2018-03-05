@@ -372,11 +372,11 @@ namespace dxvk {
         // be stored in the second operand.
         const bool hasSv =
             ins.op == DxbcOpcode::DclInputSgv
-          || ins.op == DxbcOpcode::DclInputSiv
-          || ins.op == DxbcOpcode::DclInputPsSgv
-          || ins.op == DxbcOpcode::DclInputPsSiv
-          || ins.op == DxbcOpcode::DclOutputSgv
-          || ins.op == DxbcOpcode::DclOutputSiv;
+         || ins.op == DxbcOpcode::DclInputSiv
+         || ins.op == DxbcOpcode::DclInputPsSgv
+         || ins.op == DxbcOpcode::DclInputPsSiv
+         || ins.op == DxbcOpcode::DclOutputSgv
+         || ins.op == DxbcOpcode::DclOutputSiv;
         
         DxbcSystemValue sv = DxbcSystemValue::None;
         
@@ -387,7 +387,7 @@ namespace dxvk {
         // interpolation mode that is part of the op token.
         const bool hasInterpolationMode =
             ins.op == DxbcOpcode::DclInputPs
-          || ins.op == DxbcOpcode::DclInputPsSiv;
+         || ins.op == DxbcOpcode::DclInputPsSiv;
         
         DxbcInterpolationMode im = DxbcInterpolationMode::Undefined;
         
@@ -498,6 +498,11 @@ namespace dxvk {
           "oDepthLe");
       } break;
       
+      case DxbcOperandType::OutputControlPointId: {
+        // The hull shader's invocation
+        // ID has been declared already
+      } break;
+      
       case DxbcOperandType::InputForkInstanceId:
       case DxbcOperandType::InputJoinInstanceId: {
         auto phase = this->getCurrentHsForkJoinPhase();
@@ -602,7 +607,6 @@ namespace dxvk {
       // Declare the output slot as defined
       m_interfaceSlots.outputSlots |= 1u << regIdx;
     }
-    
     
     // Add a new system value mapping if needed
     if (sv != DxbcSystemValue::None)
@@ -1075,6 +1079,8 @@ namespace dxvk {
     // dcl_input_control_points has the control point
     // count embedded within the opcode token.
     m_hs.vertexCountIn = ins.controls.controlPointCount;
+    
+    emitDclInputArray(m_hs.vertexCountIn);    
   }
   
   
@@ -2376,6 +2382,15 @@ namespace dxvk {
           Logger::err("DXBC: HsDecls not the first phase in hull shader");
         
         m_hs.currPhaseType = DxbcCompilerHsPhase::Decl;
+      } break;
+        
+      case DxbcOpcode::HsControlPointPhase: {
+        m_hs.cpPhase = this->emitNewHullShaderControlPointPhase();
+        
+        m_hs.currPhaseType = DxbcCompilerHsPhase::ControlPoint;
+        m_hs.currPhaseId   = 0;
+        
+        m_module.setDebugName(m_hs.cpPhase.functionId, "hs_control_point");
       } break;
         
       case DxbcOpcode::HsForkPhase: {
@@ -4053,6 +4068,11 @@ namespace dxvk {
           { DxbcScalarType::Float32, 1 },
           m_ps.builtinDepth };
       
+      case DxbcOperandType::OutputControlPointId:
+        return DxbcRegisterPointer {
+          { DxbcScalarType::Uint32, 1 },
+          m_hs.builtinInvocationId };
+      
       case DxbcOperandType::InputForkInstanceId:
         return DxbcRegisterPointer {
           { DxbcScalarType::Uint32, 1 },
@@ -5001,6 +5021,13 @@ namespace dxvk {
     m_module.enableCapability(spv::CapabilityClipDistance);
     m_module.enableCapability(spv::CapabilityCullDistance);
     
+    m_hs.builtinInvocationId = emitNewBuiltinVariable(
+      DxbcRegisterInfo {
+        { DxbcScalarType::Uint32, 1, 0 },
+        spv::StorageClassInput },
+      spv::BuiltInInvocationId,
+      "vOutputControlPointId");
+    
     m_hs.builtinTessLevelOuter = emitBuiltinTessLevelOuter(spv::StorageClassOutput);
     m_hs.builtinTessLevelInner = emitBuiltinTessLevelInner(spv::StorageClassOutput);
   }
@@ -5120,13 +5147,21 @@ namespace dxvk {
   
   
   void DxbcCompiler::emitHsFinalize() {
+    emitInputSetup(m_hs.vertexCountIn);
+    
     this->emitHsControlPointPhase(m_hs.cpPhase);
+    
+    if (m_hs.forkPhases.size() != 0
+     || m_hs.joinPhases.size() != 0)
+      this->emitHsPhaseBarrier();
     
     for (const auto& phase : m_hs.forkPhases)
       this->emitHsForkJoinPhase(phase);
     
     for (const auto& phase : m_hs.joinPhases)
       this->emitHsForkJoinPhase(phase);
+    
+    // TODO set up output variables
   }
   
   
@@ -5164,7 +5199,11 @@ namespace dxvk {
   
   void DxbcCompiler::emitHsControlPointPhase(
     const DxbcCompilerHsControlPointPhase&  phase) {
-    
+    if (phase.functionId != 0) {
+      m_module.opFunctionCall(
+        m_module.defVoidType(),
+        phase.functionId, 0, nullptr);
+    }
   }
   
   
@@ -5227,6 +5266,22 @@ namespace dxvk {
   }
   
   
+  DxbcCompilerHsControlPointPhase DxbcCompiler::emitNewHullShaderControlPointPhase() {
+    uint32_t funTypeId = m_module.defFunctionType(
+      m_module.defVoidType(), 0, nullptr);
+    
+    uint32_t funId = m_module.allocateId();
+    
+    m_module.functionBegin(m_module.defVoidType(),
+      funId, funTypeId, spv::FunctionControlMaskNone);
+    m_module.opLabel(m_module.allocateId());
+    
+    DxbcCompilerHsControlPointPhase result;
+    result.functionId = funId;
+    return result;
+  }
+  
+  
   DxbcCompilerHsForkJoinPhase DxbcCompiler::emitNewHullShaderForkJoinPhase() {
     uint32_t argTypeId = m_module.defIntType(32, 0);
     uint32_t funTypeId = m_module.defFunctionType(
@@ -5244,6 +5299,15 @@ namespace dxvk {
     result.functionId = funId;
     result.instanceId = argId;
     return result;
+  }
+  
+  
+  void DxbcCompiler::emitHsPhaseBarrier() {
+    uint32_t exeScopeId = m_module.constu32(spv::ScopeWorkgroup);
+    uint32_t memScopeId = m_module.constu32(spv::ScopeInvocation);
+    uint32_t semanticId = m_module.constu32(spv::MemorySemanticsMaskNone);
+    
+    m_module.opControlBarrier(exeScopeId, memScopeId, semanticId);
   }
   
   
