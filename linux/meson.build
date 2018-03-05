@@ -1,3 +1,22 @@
+dxvk_include_path = include_directories('./include')
+
+if (cpu_family == 'x86_64')
+  dxvk_library_path = meson.source_root() + '/linux/lib64'
+else
+  dxvk_library_path = meson.source_root() + '/linux/lib'
+endif
+
+winebuild = find_program('winebuild')
+winegcc   = find_program('winegcc')
+
+lib_spirvtools = dependency('SPIRV-Tools')
+
+if (cpu_family == 'x86_64')
+  target_arch = '-m64'
+else
+  target_arch = '-m32'
+endif
+
 
 wine_flags_list = [ '-DWINEBUILD',
 
