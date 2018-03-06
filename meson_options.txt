@@ -3,6 +3,8 @@
 option('wine-build', type : 'boolean', value : 'false',
        description : 'build with winebuild wrapper')
 
+option('x86_32', type : 'boolean', value : 'false',
+       description : 'build 32 bit libraries')
 
 option('hud', type : 'boolean', value : 'true',
        description : 'HUD support')
