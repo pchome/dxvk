@@ -161,6 +161,7 @@ namespace dxvk {
   struct DxbcCompilerHsForkJoinPhase {
     uint32_t functionId         = 0;
     uint32_t instanceCount      = 1;
+    
     uint32_t instanceId         = 0;
     uint32_t instanceIdPtr      = 0;
   };
@@ -209,6 +210,9 @@ namespace dxvk {
     uint32_t outputPerPatch        = 0;
     uint32_t outputPerVertex       = 0;
     
+    uint32_t invocationBlockBegin  = 0;
+    uint32_t invocationBlockEnd    = 0;
+    
     DxbcCompilerHsControlPointPhase          cpPhase;
     std::vector<DxbcCompilerHsForkJoinPhase> forkPhases;
     std::vector<DxbcCompilerHsForkJoinPhase> joinPhases;
@@ -219,10 +223,16 @@ namespace dxvk {
    * \brief Domain shader-specific structure
    */
   struct DxbcCompilerDsPart {
-    uint32_t functionId = 0;
+    uint32_t functionId            = 0;
     
+    uint32_t builtinTessCoord      = 0;
     uint32_t builtinTessLevelOuter = 0;
     uint32_t builtinTessLevelInner = 0;
+    
+    uint32_t vertexCountIn         = 0;
+    
+    uint32_t inputPerPatch         = 0;
+    uint32_t inputPerVertex        = 0;
   };
   
   
@@ -838,15 +848,31 @@ namespace dxvk {
             DxbcRegMask             mask,
       const DxbcRegisterValue&      value);
     
+    void emitHsSystemValueStore(
+            DxbcSystemValue         sv,
+            DxbcRegMask             mask,
+      const DxbcRegisterValue&      value);
+    
+    void emitDsSystemValueStore(
+            DxbcSystemValue         sv,
+            DxbcRegMask             mask,
+      const DxbcRegisterValue&      value);
+    
     void emitGsSystemValueStore(
             DxbcSystemValue         sv,
             DxbcRegMask             mask,
       const DxbcRegisterValue&      value);
     
-    /////////////////////////////////
-    // Shader initialization methods
+    //////////////////////////////////////
+    // Common function definition methods
     void emitInit();
     
+    void emitMainFunctionBegin();
+    
+    void emitMainFunctionEnd();
+    
+    /////////////////////////////////
+    // Shader initialization methods
     void emitVsInit();
     void emitHsInit();
     void emitDsInit();
@@ -873,6 +899,11 @@ namespace dxvk {
     
     void emitHsPhaseBarrier();
     
+    void emitHsInvocationBlockBegin(
+            uint32_t                          count);
+    
+    void emitHsInvocationBlockEnd();
+    
     uint32_t emitTessInterfacePerPatch(
             spv::StorageClass                 storageClass);
     
@@ -890,6 +921,8 @@ namespace dxvk {
       const char*             varName);
     
     DxbcCompilerHsControlPointPhase emitNewHullShaderControlPointPhase();
+    
+    DxbcCompilerHsControlPointPhase emitNewHullShaderPassthroughPhase();
     
     DxbcCompilerHsForkJoinPhase emitNewHullShaderForkJoinPhase();
     

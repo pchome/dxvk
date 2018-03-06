@@ -1,8 +1,14 @@
-project('dxvk', ['c', 'cpp'], default_options : ['cpp_std=c++1z'])
+project('dxvk', ['c', 'cpp'])
 
 cpu_family = target_machine.cpu_family()
 
 dxvk_compiler = meson.get_compiler('cpp')
+if dxvk_compiler.get_id() == 'msvc'
+  add_global_arguments('-DNOMINMAX', language : 'cpp')
+  dxvk_cpp_std='c++latest'
+else
+  dxvk_cpp_std='c++1z'
+endif
 
 dxvk_include_path = include_directories('./include')
 
@@ -20,7 +26,9 @@ lib_spirvtools_opt = dxvk_compiler.find_library('libSPIRV-Tools-opt', dirs : dxv
 
 lib_d3d11          = dxvk_compiler.find_library('d3d11')
 lib_dxgi           = dxvk_compiler.find_library('dxgi')
-lib_d3dcompiler_47 = dxvk_compiler.find_library('d3dcompiler_47')
+if dxvk_compiler.get_id() != 'msvc'
+  lib_d3dcompiler_47 = dxvk_compiler.find_library('d3dcompiler_47')
+endif
 
 else
   # linux specific settings
@@ -53,12 +61,14 @@ endif
 
 subdir('src')
 
+if dxvk_compiler.get_id() != 'msvc'
 if (get_option('tests'))
   subdir('tests')
 endif
 
 if (get_option('utils'))
   subdir('wine_utils')
+endif
 endif
 
 # linux specific build targets
