@@ -25,34 +25,18 @@ d3d11_src = [
   'd3d11_view_uav.cpp',
 ]
 
-if (get_option('wine-build'))
-d3d11_dll = shared_library('d3d11'+redirect_suffix+'.dll', d3d11_src,
-  name_prefix         : '',
-  link_with           : [ util_lib ],
-  dependencies        : [
-#    declare_dependency(link_args : ['-L'+dxvk_library_path, '-ldxgi'+redirect_suffix, '-lSPIRV-Tools-opt', '-lSPIRV-Tools']),
-    declare_dependency(link_args : ['-L'+dxvk_library_path, '-ldxgi'+redirect_suffix ]),
-    dxbc_dep, dxvk_dep ], # position metter
-  include_directories : dxvk_include_path,
-  objects             : 'd3d11.spec',
-  install             : true,
-  install_dir         : get_option('libdir') + '/wine')
+# prevent creating immutable build target
+if not get_option('wine-build')
 
-d3d11_dll_target = custom_target('d3d11.fake',
-  output  : 'd3d11'+redirect_suffix+'.dll',
-  input   : 'd3d11.spec',
-  command : [ winebuild, target_arch, '--dll', '--fake-module', '-E', '@INPUT@', '-o', '@OUTPUT@', '-F', '@BASENAME@'+redirect_suffix+'.dll' ],
-  install : true,
-  install_dir : get_option('libdir') + '/wine/fakedlls')
-else
 d3d11_dll = shared_library('d3d11', d3d11_src,
   name_prefix         : '',
   link_with           : [ util_lib ],
   dependencies        : [ dxvk_dep, dxgi_dep, dxbc_dep ],
   include_directories : dxvk_include_path,
   install             : true)
-endif
 
 d3d11_dep = declare_dependency(
   link_with           : [ d3d11_dll ],
   include_directories : [ dxvk_include_path, include_directories('.') ])
+
+endif

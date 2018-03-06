@@ -13,14 +13,8 @@ dxbc_src = files([
   'dxbc_util.cpp',
 ])
 
-if (get_option('wine-build'))
-dxbc_lib = static_library('dxbc', dxbc_src,
-#  dependencies : [ spirv_dep ],
-  include_directories : [ dxvk_include_path ])
-else
 dxbc_lib = static_library('dxbc', dxbc_src,
   include_directories : [ dxvk_include_path ])
-endif
 
 dxbc_dep = declare_dependency(
   link_with           : [ dxbc_lib ],
