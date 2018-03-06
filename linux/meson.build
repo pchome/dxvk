@@ -1,21 +1,39 @@
 dxvk_include_path = include_directories('./include')
 
-if (cpu_family == 'x86_64')
+if (cpu_family == 'x86_64') and not get_option('x86_32')
+  target_arch = '-m64'
   dxvk_library_path = meson.source_root() + '/linux/lib64'
 else
+  target_arch = '-m32'
   dxvk_library_path = meson.source_root() + '/linux/lib'
 endif
 
 winebuild = find_program('winebuild')
 winegcc   = find_program('winegcc')
 
-lib_spirvtools = dependency('SPIRV-Tools')
 
-if (cpu_family == 'x86_64')
-  target_arch = '-m64'
-else
-  target_arch = '-m32'
-endif
+# SPIRV-Tools includes all set of static libraries
+lib_spirvtools = dependency('SPIRV-Tools')
+lib_spirvtools_opt = declare_dependency()
+
+# TODO: use Libs and Cflags pkgconfig variables
+#lib_spirvtools_static = declare_dependency(
+#  link_args : [
+#    '-L' + lib_spirvtools.get_pkgconfig_variable('libdir'),
+#    '-lSPIRV-Tools'])
+#
+#lib_spirvtools_optimizer = declare_dependency(
+#  link_args : [
+#    '-L' + lib_spirvtools.get_pkgconfig_variable('libdir'),
+#    '-lSPIRV-Tools-opt']) #dxvk_compiler.find_library('SPIRV-Tools-opt') #declare_dependency(link_args : [ ])
+
+#lib_spirvtools_shared = declare_dependency(
+#  link_args : [
+#    '-L' + lib_spirvtools.get_pkgconfig_variable('libdir'),
+#    '-lSPIRV-Tools-shared'])
+
+# vulkan-1.dll
+lib_vulkan = declare_dependency(link_args : ['-L'+dxvk_library_path, '-lvulkan-1', '-lpthread'])
 
 
 wine_flags_list = [ '-DWINEBUILD',
@@ -101,7 +119,7 @@ wine_flags_list = [ '-DWINEBUILD',
 
   '-isystem/usr/include/wine/windows' ]
 
-
+add_global_arguments(target_arch,     language : ['c', 'cpp'])
 add_global_arguments(wine_flags_list, language : ['c', 'cpp'])
 
 

@@ -12,7 +12,7 @@ else
   dxvk_library_path = meson.source_root() + '/lib32'
 endif
 
-if (get_option('wine-build') == false)
+if not get_option('wine-build')
 lib_vulkan = dxvk_compiler.find_library('vulkan-1', dirs : dxvk_library_path)
 
 lib_spirvtools     = dxvk_compiler.find_library('libSPIRV-Tools',     dirs : dxvk_library_path)
@@ -23,6 +23,7 @@ lib_dxgi           = dxvk_compiler.find_library('dxgi')
 lib_d3dcompiler_47 = dxvk_compiler.find_library('d3dcompiler_47')
 
 else
+  # linux specific settings
   subdir('linux')
 endif
 
@@ -60,8 +61,7 @@ if (get_option('utils'))
   subdir('wine_utils')
 endif
 
-## TODO: check all refs in src/
-## than place here to be able redefine everithing
-#if get_option('wine-build')
-#  subdir('linux')
-#endif
+# linux specific build targets
+if get_option('wine-build')
+  subdir('linux/build')
+endif
