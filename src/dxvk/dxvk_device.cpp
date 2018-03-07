@@ -18,11 +18,7 @@ namespace dxvk {
     m_pipelineManager (new DxvkPipelineManager(this)),
     m_unboundResources(this),
     m_submissionQueue (this) {
-#ifdef WANT_ENV
     m_options.adjustAppOptions(env::getExeName());
-#else
-    m_options.adjustAppOptions("");
-#endif
     m_options.adjustDeviceOptions(m_adapter);
     m_options.logOptions();
     

@@ -6,26 +6,14 @@ option('wine-build', type : 'boolean', value : 'false',
 option('x86_32', type : 'boolean', value : 'false',
        description : 'build 32 bit libraries')
 
-option('hud', type : 'boolean', value : 'true',
-       description : 'HUD support')
-
-option('logger', type : 'boolean', value : 'true',
-       description : 'builtin logger support')
-
-option('env', type : 'boolean', value : 'true',
-       description : 'support environment variables to interract with libraries')
-
-
 option('dll-redirects', type : 'boolean', value : 'false',
        description : 'add _vk suffix for dll redirect feature')
-
 
 option('utils', type : 'boolean', value : 'true',
        description : 'build utils')
 
 option('install-utils', type : 'boolean', value : 'false',
        description : 'install utils')
-
 
 option('tests', type : 'boolean', value : 'true',
        description : 'build test executables')
