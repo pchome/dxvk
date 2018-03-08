@@ -505,8 +505,26 @@ namespace dxvk {
       return;
     
     if (uav->GetResourceType() == D3D11_RESOURCE_DIMENSION_BUFFER) {
-      Logger::err("D3D11: ClearUnorderedAccessViewUint: Not supported for buffers");
+      const Rc<DxvkBufferView> bufferView = uav->GetBufferView();
+      
+      if (bufferView->info().format == VK_FORMAT_R32_UINT) {
+        EmitCs([
+          cClearValue = Values[0],
+          cDstSlice   = bufferView->slice()
+        ] (DxvkContext* ctx) {
+          ctx->clearBuffer(
+            cDstSlice.buffer(),
+            cDstSlice.offset(),
+            cDstSlice.length(),
+            cClearValue);
+        });
+      } else {
+        Logger::err("D3D11: ClearUnorderedAccessViewUint: Not supported for typed buffers");
+      }
     } else {
+      // FIXME floating point formats are not handled correctly
+      // yet, we might need to create an image view with an
+      // integer format and clear that.
       VkClearColorValue clearValue;
       
       for (uint32_t i = 0; i < 4; i++)
@@ -2035,16 +2053,20 @@ namespace dxvk {
           UINT                              NumBuffers,
           ID3D11Buffer* const*              ppSOTargets,
     const UINT*                             pOffsets) {
-    if (NumBuffers > 0)
-      Logger::err("D3D11DeviceContext::SOSetTargets: Not implemented");
+    // TODO implement properly, including pOffsets
+    for (uint32_t i = 0; i < D3D11_SO_STREAM_COUNT; i++) {
+      m_state.so.targets[i] = (ppSOTargets != nullptr && i < NumBuffers)
+        ? static_cast<D3D11Buffer*>(ppSOTargets[i])
+        : nullptr;
+    }
   }
   
   
   void STDMETHODCALLTYPE D3D11DeviceContext::SOGetTargets(
           UINT                              NumBuffers,
           ID3D11Buffer**                    ppSOTargets) {
-    if (NumBuffers > 0)
-      Logger::err("D3D11DeviceContext::SOGetTargets: Not implemented");
+    for (uint32_t i = 0; i < NumBuffers; i++)
+      ppSOTargets[i] = m_state.so.targets[i].ref();
   }
   
   
