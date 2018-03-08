@@ -68,8 +68,11 @@ namespace dxvk {
     }
     
     std::memset(pDesc->DeviceName, 0, sizeof(pDesc->DeviceName));
+#ifdef WINEBUILD
+    std::mbstowcs(pDesc->DeviceName, (LPCSTR)monInfo.szDevice, _countof(pDesc->DeviceName) - 1);
+#else
     std::mbstowcs(pDesc->DeviceName, monInfo.szDevice, _countof(pDesc->DeviceName) - 1);
-    
+#endif
     pDesc->DesktopCoordinates = monInfo.rcMonitor;
     pDesc->AttachedToDesktop  = 1;
     pDesc->Rotation           = DXGI_MODE_ROTATION_UNSPECIFIED;
