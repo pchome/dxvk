@@ -35,29 +35,16 @@ else
   subdir('linux')
 endif
 
-if (get_option('hud'))
-  add_global_arguments('-DWANT_HUD', language : ['c', 'cpp'])
-
-  glsl_compiler = find_program('glslangValidator')
-  glsl_generator = generator(glsl_compiler,
-    output    : [ '@BASENAME@.h' ],
-    arguments : [ '-V', '--vn', '@BASENAME@', '@INPUT@', '-o', '@OUTPUT@' ])
-endif
+glsl_compiler = find_program('glslangValidator')
+glsl_generator = generator(glsl_compiler,
+  output    : [ '@BASENAME@.h' ],
+  arguments : [ '-V', '--vn', '@BASENAME@', '@INPUT@', '-o', '@OUTPUT@' ])
 
 if (get_option('dll-redirects'))
   redirect_suffix = '_vk'
 else
   redirect_suffix = ''
 endif
-
-if (get_option('env'))
-  add_global_arguments('-DWANT_ENV', language : ['c', 'cpp'])
-endif
-
-if (get_option('logger'))
-  add_global_arguments('-DWANT_LOGGER', language : ['c', 'cpp'])
-endif
-
 
 subdir('src')
 
