@@ -527,30 +527,86 @@ namespace dxvk {
     D3D11ContextState           m_state;
     uint64_t                    m_drawCount = 0;
     
+    void ApplyInputLayout();
+    
+    void ApplyPrimitiveTopology();
+    
+    void ApplyBlendState();
+    
+    void ApplyBlendFactor();
+    
+    void ApplyDepthStencilState();
+    
+    void ApplyStencilRef();
+    
+    void ApplyRasterizerState();
+    
+    void ApplyViewportState();
+    
     void BindFramebuffer();
     
-    void BindConstantBuffers(
+    template<typename T>
+    void BindShader(
+            T*                                pShader,
+            VkShaderStageFlagBits             Stage) {
+      EmitCs([
+        cShader = pShader != nullptr ? pShader->GetShader() : nullptr,
+        cStage  = Stage
+      ] (DxvkContext* ctx) {
+        ctx->bindShader(cStage, cShader);
+      });
+    }
+    
+    void BindVertexBuffer(
+            UINT                              Slot,
+            D3D11Buffer*                      pBuffer,
+            UINT                              Offset,
+            UINT                              Stride);
+    
+    void BindIndexBuffer(
+            D3D11Buffer*                      pBuffer,
+            UINT                              Offset,
+            DXGI_FORMAT                       Format);
+    
+    void BindConstantBuffer(
+            UINT                              Slot,
+            D3D11Buffer*                      pBuffer);
+    
+    void BindSampler(
+            UINT                              Slot,
+            D3D11SamplerState*                pSampler);
+    
+    void BindShaderResource(
+            UINT                              Slot,
+            D3D11ShaderResourceView*          pResource);
+    
+    void BindUnorderedAccessView(
+            UINT                              UavSlot,
+            UINT                              CtrSlot,
+            D3D11UnorderedAccessView*         pUav);
+    
+    void SetConstantBuffers(
             DxbcProgramType                   ShaderStage,
             D3D11ConstantBufferBindings&      Bindings,
             UINT                              StartSlot,
             UINT                              NumBuffers,
             ID3D11Buffer* const*              ppConstantBuffers);
     
-    void BindSamplers(
+    void SetSamplers(
             DxbcProgramType                   ShaderStage,
             D3D11SamplerBindings&             Bindings,
             UINT                              StartSlot,
             UINT                              NumSamplers,
             ID3D11SamplerState* const*        ppSamplers);
     
-    void BindShaderResources(
+    void SetShaderResources(
             DxbcProgramType                   ShaderStage,
             D3D11ShaderResourceBindings&      Bindings,
             UINT                              StartSlot,
             UINT                              NumResources,
             ID3D11ShaderResourceView* const*  ppResources);
     
-    void BindUnorderedAccessViews(
+    void SetUnorderedAccessViews(
             DxbcProgramType                   ShaderStage,
             D3D11UnorderedAccessBindings&     Bindings,
             UINT                              StartSlot,
@@ -562,9 +618,24 @@ namespace dxvk {
             ID3D11UnorderedAccessView* const* ppUnorderedAccessViews,
       const UINT*                             pUAVInitialCounts);
     
-    void ApplyViewportState();
-    
     void RestoreState();
+    
+    void RestoreConstantBuffers(
+            DxbcProgramType                   Stage,
+            D3D11ConstantBufferBindings&      Bindings);
+    
+    void RestoreSamplers(
+            DxbcProgramType                   Stage,
+            D3D11SamplerBindings&             Bindings);
+    
+    void RestoreShaderResources(
+            DxbcProgramType                   Stage,
+            D3D11ShaderResourceBindings&      Bindings);
+    
+    void RestoreUnorderedAccessViews(
+            DxbcProgramType                   Stage,
+            D3D11UnorderedAccessBindings&     Bindings,
+            UINT                              SlotCount);
     
     DxvkDataSlice AllocUpdateBufferSlice(size_t Size);
     
