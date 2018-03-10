@@ -200,6 +200,8 @@ namespace dxvk {
     DxbcCompilerHsPhase currPhaseType   = DxbcCompilerHsPhase::None;
     size_t              currPhaseId     = 0;
     
+    float maxTessFactor = 64.0f;
+    
     uint32_t vertexCountIn   = 0;
     uint32_t vertexCountOut  = 0;
     
@@ -484,6 +486,9 @@ namespace dxvk {
     void emitDclOutputControlPointCount(
       const DxbcShaderInstruction&  ins);
     
+    void emitDclHsMaxTessFactor(
+      const DxbcShaderInstruction&  ins);
+    
     void emitDclTessDomain(
       const DxbcShaderInstruction&  ins);
     
@@ -635,6 +640,9 @@ namespace dxvk {
       const DxbcShaderInstruction&  ins);
     
     void emitControlFlowRet(
+      const DxbcShaderInstruction&  ins);
+
+    void emitControlFlowRetc(
       const DxbcShaderInstruction&  ins);
     
     void emitControlFlowDiscard(

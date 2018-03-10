@@ -247,6 +247,9 @@ namespace dxvk {
       case DxbcOpcode::DclOutputControlPointCount:
         return this->emitDclOutputControlPointCount(ins);
       
+      case DxbcOpcode::DclHsMaxTessFactor:
+        return this->emitDclHsMaxTessFactor(ins);
+        
       case DxbcOpcode::DclTessDomain:
         return this->emitDclTessDomain(ins);
       
@@ -1106,6 +1109,11 @@ namespace dxvk {
     m_hs.outputPerVertex = emitTessInterfacePerVertex(spv::StorageClassOutput, m_hs.vertexCountOut);
     
     m_module.setOutputVertices(m_entryPointId, ins.controls.controlPointCount);
+  }
+  
+  
+  void DxbcCompiler::emitDclHsMaxTessFactor(const DxbcShaderInstruction& ins) {
+    m_hs.maxTessFactor = ins.imm[0].f32;
   }
   
   
@@ -3411,6 +3419,33 @@ namespace dxvk {
     else
       m_module.opLabel(m_module.allocateId());
   }
+
+
+  void DxbcCompiler::emitControlFlowRetc(const DxbcShaderInstruction& ins) {
+    
+    // Perform zero test on the first component of the condition
+    const DxbcRegisterValue condition = emitRegisterLoad(
+      ins.src[0], DxbcRegMask(true, false, false, false));
+    
+    const DxbcRegisterValue zeroTest = emitRegisterZeroTest(
+      condition, ins.controls.zeroTest);
+    
+    // We basically have to wrap this into an 'if' block
+    const uint32_t returnLabel = m_module.allocateId();
+    const uint32_t continueLabel = m_module.allocateId();
+    
+    m_module.opSelectionMerge(continueLabel,
+      spv::SelectionControlMaskNone);
+    
+    m_module.opBranchConditional(
+      zeroTest.id, returnLabel, continueLabel);
+    
+    m_module.opLabel(returnLabel);
+ 
+    m_module.opReturn();
+
+    m_module.opLabel(continueLabel);
+  }
   
   
   void DxbcCompiler::emitControlFlowDiscard(const DxbcShaderInstruction& ins) {
@@ -3479,6 +3514,9 @@ namespace dxvk {
         
       case DxbcOpcode::Ret:
         return this->emitControlFlowRet(ins);
+
+      case DxbcOpcode::Retc:
+        return this->emitControlFlowRetc(ins);
         
       case DxbcOpcode::Discard:
         return this->emitControlFlowDiscard(ins);
@@ -5033,6 +5071,12 @@ namespace dxvk {
       const uint32_t tessFactorArrayIndex
         = m_module.constu32(tessFactor.index);
       
+      // Apply global tess factor limit
+      DxbcRegisterValue tessValue = emitRegisterExtract(value, mask);
+      tessValue.id = m_module.opFClamp(getVectorTypeId(tessValue.type),
+        tessValue.id, m_module.constf32(0.0f),
+        m_module.constf32(m_hs.maxTessFactor));
+      
       DxbcRegisterPointer ptr;
       ptr.type.ctype  = DxbcScalarType::Float32;
       ptr.type.ccount = 1;
@@ -5043,7 +5087,7 @@ namespace dxvk {
         tessFactor.array, 1,
         &tessFactorArrayIndex);
       
-      emitValueStore(ptr, emitRegisterExtract(value, mask),
+      emitValueStore(ptr, tessValue,
         DxbcRegMask(true, false, false, false));
     } else {
       Logger::warn(str::format(
