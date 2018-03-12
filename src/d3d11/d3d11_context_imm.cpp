@@ -42,8 +42,9 @@ namespace dxvk {
   
   
   void STDMETHODCALLTYPE D3D11ImmediateContext::Flush() {
+    m_parent->FlushInitContext();
+    
     if (m_csChunk->commandCount() != 0) {
-      m_parent->FlushInitContext();
       m_drawCount = 0;
       
       // Add commands to flush the threaded
@@ -88,6 +89,11 @@ namespace dxvk {
           D3D11_MAP                   MapType,
           UINT                        MapFlags,
           D3D11_MAPPED_SUBRESOURCE*   pMappedResource) {
+    if (pResource == nullptr) {
+      Logger::warn("D3D11ImmediateContext::Map() application tried to map a nullptr resource");
+      return DXGI_ERROR_INVALID_CALL;
+    }
+
     D3D11_RESOURCE_DIMENSION resourceDim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
     pResource->GetType(&resourceDim);
     
