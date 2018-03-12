@@ -3,6 +3,9 @@
 
 #include <sstream>
 #include <string>
+#ifdef WINEBUILD
+#include <limits.h>
+#endif
 
 #include "dxgi_adapter.h"
 #include "dxgi_output.h"
