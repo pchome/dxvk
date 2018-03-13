@@ -19,13 +19,11 @@ else
 endif
 
 if not get_option('wine-build')
-lib_vulkan = dxvk_compiler.find_library('vulkan-1', dirs : dxvk_library_path)
 
-lib_spirvtools     = dxvk_compiler.find_library('libSPIRV-Tools',     dirs : dxvk_library_path)
-lib_spirvtools_opt = dxvk_compiler.find_library('libSPIRV-Tools-opt', dirs : dxvk_library_path)
+lib_vulkan  = dxvk_compiler.find_library('vulkan-1', dirs : dxvk_library_path)
+lib_d3d11   = dxvk_compiler.find_library('d3d11')
+lib_dxgi    = dxvk_compiler.find_library('dxgi')
 
-lib_d3d11          = dxvk_compiler.find_library('d3d11')
-lib_dxgi           = dxvk_compiler.find_library('dxgi')
 if dxvk_compiler.get_id() != 'msvc'
   lib_d3dcompiler_47 = dxvk_compiler.find_library('d3dcompiler_47')
 endif
@@ -33,7 +31,7 @@ endif
 else
   # linux specific settings
   subdir('linux')
-endif
+endif #wine-build
 
 glsl_compiler = find_program('glslangValidator')
 glsl_generator = generator(glsl_compiler,
