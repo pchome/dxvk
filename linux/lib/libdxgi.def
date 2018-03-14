@@ -1,9 +1,8 @@
-; File generated automatically from /var/tmp/portage/app-emulation/wine-staging-2.21/work/wine-2.21/dlls/dxgi/dxgi.spec; do not edit!
-
 LIBRARY dxgi.dll
 
 EXPORTS
-  CreateDXGIFactory@8 @1
-  CreateDXGIFactory1@8 @2
-  DXGID3D10CreateDevice@28 @3
-  DXGID3D10RegisterLayers@8 @4
+  CreateDXGIFactory
+  CreateDXGIFactory1
+  DXGID3D10CreateDevice
+  DXGID3D10RegisterLayers
+  DXGICreateDevicePrivate
