@@ -103,14 +103,28 @@ namespace dxvk {
     const D3D11_TEXTURE1D_DESC*   pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
           ID3D11Texture1D**       ppTexture1D) {
+    D3D11_COMMON_TEXTURE_DESC desc;
+    desc.Width          = pDesc->Width;
+    desc.Height         = 1;
+    desc.Depth          = 1;
+    desc.MipLevels      = pDesc->MipLevels;
+    desc.ArraySize      = pDesc->ArraySize;
+    desc.Format         = pDesc->Format;
+    desc.SampleDesc     = DXGI_SAMPLE_DESC { 1, 0 };
+    desc.Usage          = pDesc->Usage;
+    desc.BindFlags      = pDesc->BindFlags;
+    desc.CPUAccessFlags = pDesc->CPUAccessFlags;
+    desc.MiscFlags      = pDesc->MiscFlags;
+    
+    if (FAILED(D3D11CommonTexture::NormalizeTextureProperties(&desc)))
+      return E_INVALIDARG;
+    
     if (ppTexture1D == nullptr)
       return S_FALSE;
     
     try {
-      const Com<D3D11Texture1D> texture
-        = new D3D11Texture1D(this, pDesc);
-      
-      this->InitTexture(texture->GetTextureInfo()->image, pInitialData);
+      const Com<D3D11Texture1D> texture = new D3D11Texture1D(this, &desc);
+      this->InitTexture(texture->GetCommonTexture()->GetImage(), pInitialData);
       *ppTexture1D = texture.ref();
       return S_OK;
     } catch (const DxvkError& e) {
@@ -124,14 +138,28 @@ namespace dxvk {
     const D3D11_TEXTURE2D_DESC*   pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
           ID3D11Texture2D**       ppTexture2D) {
+    D3D11_COMMON_TEXTURE_DESC desc;
+    desc.Width          = pDesc->Width;
+    desc.Height         = pDesc->Height;
+    desc.Depth          = 1;
+    desc.MipLevels      = pDesc->MipLevels;
+    desc.ArraySize      = pDesc->ArraySize;
+    desc.Format         = pDesc->Format;
+    desc.SampleDesc     = pDesc->SampleDesc;
+    desc.Usage          = pDesc->Usage;
+    desc.BindFlags      = pDesc->BindFlags;
+    desc.CPUAccessFlags = pDesc->CPUAccessFlags;
+    desc.MiscFlags      = pDesc->MiscFlags;
+    
+    if (FAILED(D3D11CommonTexture::NormalizeTextureProperties(&desc)))
+      return E_INVALIDARG;
+    
     if (ppTexture2D == nullptr)
       return S_FALSE;
     
     try {
-      const Com<D3D11Texture2D> texture
-        = new D3D11Texture2D(this, pDesc);
-      
-      this->InitTexture(texture->GetTextureInfo()->image, pInitialData);
+      const Com<D3D11Texture2D> texture = new D3D11Texture2D(this, &desc);
+      this->InitTexture(texture->GetCommonTexture()->GetImage(), pInitialData);
       *ppTexture2D = texture.ref();
       return S_OK;
     } catch (const DxvkError& e) {
@@ -145,14 +173,28 @@ namespace dxvk {
     const D3D11_TEXTURE3D_DESC*   pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
           ID3D11Texture3D**       ppTexture3D) {
+    D3D11_COMMON_TEXTURE_DESC desc;
+    desc.Width          = pDesc->Width;
+    desc.Height         = pDesc->Height;
+    desc.Depth          = pDesc->Depth;
+    desc.MipLevels      = pDesc->MipLevels;
+    desc.ArraySize      = 1;
+    desc.Format         = pDesc->Format;
+    desc.SampleDesc     = DXGI_SAMPLE_DESC { 1, 0 };
+    desc.Usage          = pDesc->Usage;
+    desc.BindFlags      = pDesc->BindFlags;
+    desc.CPUAccessFlags = pDesc->CPUAccessFlags;
+    desc.MiscFlags      = pDesc->MiscFlags;
+    
+    if (FAILED(D3D11CommonTexture::NormalizeTextureProperties(&desc)))
+      return E_INVALIDARG;
+    
     if (ppTexture3D == nullptr)
       return S_FALSE;
       
     try {
-      const Com<D3D11Texture3D> texture
-        = new D3D11Texture3D(this, pDesc);
-      
-      this->InitTexture(texture->GetTextureInfo()->image, pInitialData);
+      const Com<D3D11Texture3D> texture = new D3D11Texture3D(this, &desc);
+      this->InitTexture(texture->GetCommonTexture()->GetImage(), pInitialData);
       *ppTexture3D = texture.ref();
       return S_OK;
     } catch (const DxvkError& e) {
@@ -251,11 +293,9 @@ namespace dxvk {
         return E_FAIL;
       }
     } else {
-      // Retrieve info about the image
-      const D3D11TextureInfo* textureInfo
-        = GetCommonTextureInfo(pResource);
+      const D3D11CommonTexture* textureInfo = GetCommonTexture(pResource);
       
-      if ((textureInfo->bindFlags & D3D11_BIND_SHADER_RESOURCE) == 0) {
+      if ((textureInfo->Desc()->BindFlags & D3D11_BIND_SHADER_RESOURCE) == 0) {
         Logger::warn("D3D11: Trying to create SRV for texture without D3D11_BIND_SHADER_RESOURCE");
         return E_INVALIDARG;
       }
@@ -264,7 +304,7 @@ namespace dxvk {
       // on the view dimension field in the view description,
       // not on the resource type.
       const DxgiFormatInfo formatInfo = m_dxgiAdapter
-        ->LookupFormat(desc.Format, textureInfo->formatMode);
+        ->LookupFormat(desc.Format, textureInfo->GetFormatMode());
       
       DxvkImageViewCreateInfo viewInfo;
       viewInfo.format  = formatInfo.format;
@@ -358,7 +398,8 @@ namespace dxvk {
         *ppSRView = ref(new D3D11ShaderResourceView(
           this, pResource, desc,
           m_dxvkDevice->createImageView(
-            textureInfo->image, viewInfo)));
+            textureInfo->GetImage(),
+            viewInfo)));
         return S_OK;
       } catch (const DxvkError& e) {
         Logger::err(e.message());
@@ -447,11 +488,9 @@ namespace dxvk {
         return E_FAIL;
       }
     } else {
-      // Retrieve info about the image
-      const D3D11TextureInfo* textureInfo
-        = GetCommonTextureInfo(pResource);
+      const D3D11CommonTexture* textureInfo = GetCommonTexture(pResource);
       
-      if ((textureInfo->bindFlags & D3D11_BIND_UNORDERED_ACCESS) == 0) {
+      if ((textureInfo->Desc()->BindFlags & D3D11_BIND_UNORDERED_ACCESS) == 0) {
         Logger::warn("D3D11: Trying to create UAV for texture without D3D11_BIND_UNORDERED_ACCESS");
         return E_INVALIDARG;
       }
@@ -460,7 +499,7 @@ namespace dxvk {
       // on the view dimension field in the view description,
       // not on the resource type.
       const DxgiFormatInfo formatInfo = m_dxgiAdapter
-        ->LookupFormat(desc.Format, textureInfo->formatMode);
+        ->LookupFormat(desc.Format, textureInfo->GetFormatMode());
       
       DxvkImageViewCreateInfo viewInfo;
       viewInfo.format  = formatInfo.format;
@@ -524,7 +563,8 @@ namespace dxvk {
         *ppUAView = ref(new D3D11UnorderedAccessView(
           this, pResource, desc,
           m_dxvkDevice->createImageView(
-            textureInfo->image, viewInfo),
+            textureInfo->GetImage(),
+            viewInfo),
           DxvkBufferSlice()));
         return S_OK;
       } catch (const DxvkError& e) {
@@ -558,10 +598,9 @@ namespace dxvk {
     }
     
     // Retrieve the image that we are going to create the view for
-    const D3D11TextureInfo* textureInfo
-      = GetCommonTextureInfo(pResource);
+    const D3D11CommonTexture* textureInfo = GetCommonTexture(pResource);
     
-    if ((textureInfo->bindFlags & D3D11_BIND_RENDER_TARGET) == 0) {
+    if ((textureInfo->Desc()->BindFlags & D3D11_BIND_RENDER_TARGET) == 0) {
       Logger::warn("D3D11: Trying to create RTV for texture without D3D11_BIND_RENDER_TARGET");
       return E_INVALIDARG;
     }
@@ -643,7 +682,8 @@ namespace dxvk {
       *ppRTView = ref(new D3D11RenderTargetView(
         this, pResource, desc,
         m_dxvkDevice->createImageView(
-          textureInfo->image, viewInfo)));
+          textureInfo->GetImage(),
+          viewInfo)));
       return S_OK;
     } catch (const DxvkError& e) {
       Logger::err(e.message());
@@ -675,10 +715,9 @@ namespace dxvk {
     }
     
     // Retrieve the image that we are going to create the view for
-    const D3D11TextureInfo* textureInfo
-      = GetCommonTextureInfo(pResource);
+    const D3D11CommonTexture* textureInfo = GetCommonTexture(pResource);
     
-    if ((textureInfo->bindFlags & D3D11_BIND_DEPTH_STENCIL) == 0) {
+    if ((textureInfo->Desc()->BindFlags & D3D11_BIND_DEPTH_STENCIL) == 0) {
       Logger::warn("D3D11: Trying to create DSV for texture without D3D11_BIND_DEPTH_STENCIL");
       return E_INVALIDARG;
     }
@@ -752,7 +791,8 @@ namespace dxvk {
       *ppDepthStencilView = ref(new D3D11DepthStencilView(
         this, pResource, desc,
         m_dxvkDevice->createImageView(
-          textureInfo->image, viewInfo)));
+          textureInfo->GetImage(),
+          viewInfo)));
       return S_OK;
     } catch (const DxvkError& e) {
       Logger::err(e.message());
