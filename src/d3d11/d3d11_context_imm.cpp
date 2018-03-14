@@ -100,69 +100,119 @@ namespace dxvk {
     pResource->GetType(&resourceDim);
     
     if (resourceDim == D3D11_RESOURCE_DIMENSION_BUFFER) {
-      D3D11Buffer* resource = static_cast<D3D11Buffer*>(pResource);
-      Rc<DxvkBuffer> buffer = resource->GetBufferSlice().buffer();
+      return MapBuffer(
+        static_cast<D3D11Buffer*>(pResource),
+        MapType, MapFlags, pMappedResource);
+    } else {
+      return MapImage(
+        GetCommonTexture(pResource),
+        Subresource, MapType, MapFlags,
+        pMappedResource);
+    }
+  }
+  
+  
+  void STDMETHODCALLTYPE D3D11ImmediateContext::Unmap(
+          ID3D11Resource*             pResource,
+          UINT                        Subresource) {
+    D3D11_RESOURCE_DIMENSION resourceDim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
+    pResource->GetType(&resourceDim);
+    
+    if (resourceDim != D3D11_RESOURCE_DIMENSION_BUFFER)
+      UnmapImage(GetCommonTexture(pResource), Subresource);
+  }
+  
+  
+  HRESULT D3D11ImmediateContext::MapBuffer(
+          D3D11Buffer*                pResource,
+          D3D11_MAP                   MapType,
+          UINT                        MapFlags,
+          D3D11_MAPPED_SUBRESOURCE*   pMappedResource) {
+    Rc<DxvkBuffer> buffer = pResource->GetBufferSlice().buffer();
+    
+    if (!(buffer->memFlags() & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
+      Logger::err("D3D11: Cannot map a device-local buffer");
+      return E_INVALIDARG;
+    }
+    
+    if (pMappedResource == nullptr)
+      return S_FALSE;
+    
+    if (MapType == D3D11_MAP_WRITE_DISCARD) {
+      // Allocate a new backing slice for the buffer and set
+      // it as the 'new' mapped slice. This assumes that the
+      // only way to invalidate a buffer is by mapping it.
+      auto physicalSlice = buffer->allocPhysicalSlice();
+      physicalSlice.resource()->acquire();
       
-      if (!(buffer->memFlags() & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
-        Logger::err("D3D11: Cannot map a device-local buffer");
-        return E_INVALIDARG;
-      }
+      pResource->GetBufferInfo()->mappedSlice = physicalSlice;
       
-      if (pMappedResource == nullptr)
-        return S_FALSE;
+      EmitCs([
+        cBuffer        = buffer,
+        cPhysicalSlice = physicalSlice
+      ] (DxvkContext* ctx) {
+        ctx->invalidateBuffer(cBuffer, cPhysicalSlice);
+        cPhysicalSlice.resource()->release();
+      });
+    } else if (MapType != D3D11_MAP_WRITE_NO_OVERWRITE) {
+      if (!WaitForResource(buffer->resource(), MapFlags))
+        return DXGI_ERROR_WAS_STILL_DRAWING;
+    }
+    
+    // Use map pointer from previous map operation. This
+    // way we don't have to synchronize with the CS thread
+    // if the map mode is D3D11_MAP_WRITE_NO_OVERWRITE.
+    const DxvkPhysicalBufferSlice physicalSlice
+      = pResource->GetBufferInfo()->mappedSlice;
+    
+    pMappedResource->pData      = physicalSlice.mapPtr(0);
+    pMappedResource->RowPitch   = physicalSlice.length();
+    pMappedResource->DepthPitch = physicalSlice.length();
+    return S_OK;
+  }
+  
+  
+  HRESULT D3D11ImmediateContext::MapImage(
+          D3D11CommonTexture*         pResource,
+          UINT                        Subresource,
+          D3D11_MAP                   MapType,
+          UINT                        MapFlags,
+          D3D11_MAPPED_SUBRESOURCE*   pMappedResource) {
+    const Rc<DxvkImage>  mappedImage  = pResource->GetImage();
+    const Rc<DxvkBuffer> mappedBuffer = pResource->GetMappedBuffer();
+    
+    if (pResource->GetMapMode() == D3D11_COMMON_TEXTURE_MAP_MODE_NONE) {
+      Logger::err("D3D11: Cannot map a device-local image");
+      return E_INVALIDARG;
+    }
+    
+    if (pMappedResource == nullptr)
+      return S_FALSE;
+    
+    // Parameter validation was successful
+    VkImageSubresource subresource =
+      pResource->GetSubresourceFromIndex(
+        VK_IMAGE_ASPECT_COLOR_BIT, Subresource);
+    
+    pResource->SetMappedSubresource(subresource);
+    
+    if (pResource->GetMapMode() == D3D11_COMMON_TEXTURE_MAP_MODE_DIRECT) {
+      const VkImageType imageType = mappedImage->info().type;
       
-      if (MapType == D3D11_MAP_WRITE_DISCARD) {
-        // Allocate a new backing slice for the buffer and set
-        // it as the 'new' mapped slice. This assumes that the
-        // only way to invalidate a buffer is by mapping it.
-        auto physicalSlice = buffer->allocPhysicalSlice();
-        physicalSlice.resource()->acquire();
-        
-        resource->GetBufferInfo()->mappedSlice = physicalSlice;
-        
-        EmitCs([
-          cBuffer        = buffer,
-          cPhysicalSlice = physicalSlice
-        ] (DxvkContext* ctx) {
-          ctx->invalidateBuffer(cBuffer, cPhysicalSlice);
-          cPhysicalSlice.resource()->release();
-        });
-      } else if (MapType != D3D11_MAP_WRITE_NO_OVERWRITE) {
-        if (!WaitForResource(buffer->resource(), MapFlags))
-          return DXGI_ERROR_WAS_STILL_DRAWING;
-      }
+      // Wait for the resource to become available
+      if (!WaitForResource(mappedImage, MapFlags))
+        return DXGI_ERROR_WAS_STILL_DRAWING;
       
-      // Use map pointer from previous map operation. This
-      // way we don't have to synchronize with the CS thread
-      // if the map mode is D3D11_MAP_WRITE_NO_OVERWRITE.
-      const DxvkPhysicalBufferSlice physicalSlice
-        = resource->GetBufferInfo()->mappedSlice;
+      // Query the subresource's memory layout and hope that
+      // the application respects the returned pitch values.
+      VkSubresourceLayout layout = mappedImage->querySubresourceLayout(subresource);
       
-      pMappedResource->pData      = physicalSlice.mapPtr(0);
-      pMappedResource->RowPitch   = physicalSlice.length();
-      pMappedResource->DepthPitch = physicalSlice.length();
+      pMappedResource->pData      = mappedImage->mapPtr(layout.offset);
+      pMappedResource->RowPitch   = imageType >= VK_IMAGE_TYPE_2D ? layout.rowPitch   : layout.size;
+      pMappedResource->DepthPitch = imageType >= VK_IMAGE_TYPE_3D ? layout.depthPitch : layout.size;
       return S_OK;
     } else {
-      D3D11CommonTexture* textureInfo = GetCommonTexture(pResource);
-      
-      const Rc<DxvkImage>  mappedImage  = textureInfo->GetImage();
-      const Rc<DxvkBuffer> mappedBuffer = textureInfo->GetMappedBuffer();
-      
-      if (mappedBuffer == nullptr) {
-        Logger::err("D3D11: Cannot map a device-local image");
-        return E_INVALIDARG;
-      }
-      
-      if (pMappedResource == nullptr)
-        return S_FALSE;
-      
-      VkImageSubresource subresource =
-        textureInfo->GetSubresourceFromIndex(
-          VK_IMAGE_ASPECT_COLOR_BIT, Subresource);
-      
-      textureInfo->SetMappedSubresource(subresource);
-      
-      // Query format info in order to compute
+      // Query format info which we need to compute
       // the row pitch and layer pitch properly.
       const DxvkFormatInfo* formatInfo = imageFormatInfo(mappedImage->info().format);
       
@@ -172,9 +222,9 @@ namespace dxvk {
       
       DxvkPhysicalBufferSlice physicalSlice;
       
-      // When using any map mode which requires the image contents
-      // to be preserved, copy the image's contents into the buffer.
       if (MapType == D3D11_MAP_WRITE_DISCARD) {
+        // We do not have to preserve the contents of the
+        // buffer if the entire image gets discarded.
         physicalSlice = mappedBuffer->allocPhysicalSlice();
         physicalSlice.resource()->acquire();
         
@@ -186,9 +236,10 @@ namespace dxvk {
           cPhysicalSlice.resource()->release();
         });
       } else {
-        // We may have to copy the current image contents into the
-        // mapped buffer if the GPU has write access to the image.
-        const bool copyExistingData = textureInfo->Desc()->Usage == D3D11_USAGE_STAGING;
+        // When using any map mode which requires the image contents
+        // to be preserved, and if the GPU has write access to the
+        // image, copy the current image contents into the buffer.
+        const bool copyExistingData = pResource->Desc()->Usage == D3D11_USAGE_STAGING;
         
         if (copyExistingData) {
           const VkImageSubresourceLayers subresourceLayers = {
@@ -224,21 +275,16 @@ namespace dxvk {
   }
   
   
-  void STDMETHODCALLTYPE D3D11ImmediateContext::Unmap(
-          ID3D11Resource*             pResource,
+  void D3D11ImmediateContext::UnmapImage(
+          D3D11CommonTexture*         pResource,
           UINT                        Subresource) {
-    D3D11_RESOURCE_DIMENSION resourceDim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
-    pResource->GetType(&resourceDim);
-    
-    if (resourceDim != D3D11_RESOURCE_DIMENSION_BUFFER) {
+    if (pResource->GetMapMode() == D3D11_COMMON_TEXTURE_MAP_MODE_BUFFER) {
       // Now that data has been written into the buffer,
       // we need to copy its contents into the image
-      D3D11CommonTexture* textureInfo = GetCommonTexture(pResource);
+      const Rc<DxvkImage>  mappedImage  = pResource->GetImage();
+      const Rc<DxvkBuffer> mappedBuffer = pResource->GetMappedBuffer();
       
-      const Rc<DxvkImage>  mappedImage  = textureInfo->GetImage();
-      const Rc<DxvkBuffer> mappedBuffer = textureInfo->GetMappedBuffer();
-      
-      VkImageSubresource subresource = textureInfo->GetMappedSubresource();
+      VkImageSubresource subresource = pResource->GetMappedSubresource();
       
       VkExtent3D levelExtent = mappedImage
         ->mipLevelExtent(subresource.mipLevel);
@@ -259,6 +305,8 @@ namespace dxvk {
           cSrcBuffer, 0, { 0u, 0u });
       });
     }
+    
+    pResource->ClearMappedSubresource();
   }
   
   
