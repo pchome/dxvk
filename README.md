@@ -35,9 +35,9 @@ The two libraries `dxgi.dll` and `d3d11.dll`as well as some demo executables wil
 ### Building native WINE DLLs
 Inside the dxvk directory, run:
 ```
-meson -Dwine-build=true --cross-file build-win64-wine.txt build.x86_64
+meson -Dwine-build=true build.x86_64
 cd build.x86_64
-meson configure -Denv=false -Dutils=false -Dprefix=/your/dxvk/directory/ -Dbuildtype=release
+meson configure -Dprefix=/your/dxvk/directory/ -Dbuildtype=release
 ninja
 ninja install
 ```

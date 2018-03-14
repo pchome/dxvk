@@ -4,24 +4,59 @@
 
 d3d11_source_dir = meson.source_root() + '/src/d3d11/'
 d3d11_install_dir = get_option('libdir') + '/wine'
+d3d11_build_dir = 'linux/build/d3d11'+ redirect_suffix +'.dll@sha/'
 
 # add full path to sources
 d3d11_src_path = []
+d3d11_obj_path = []
 foreach src : d3d11_src
   d3d11_src_path += d3d11_source_dir + src
+  d3d11_obj_path += d3d11_build_dir + src + '.o'
 endforeach
+
+d3d11_wine_link = declare_dependency(link_args : [
+  '-Wl,-Bsymbolic',
+  '-Wl,-z,defs',
+  '-Wl,-init,__wine_spec_init,-fini,__wine_spec_fini',
+  '-L' + wine_library_path,
+  '-L' + winecrt0_library_path,
+  '-lwinecrt0', '-lwine', '-lm', '-lc', '-lpthread' ])
+
+#d3d11_dxgi_link = declare_dependency(link_args : ['-L'+dxvk_library_path, '-ldxgi'+redirect_suffix])
+
+# create d3d11 dependency object for WINE
+d3d11_wine_dep_target = custom_target('d3d11.wine',
+  output  : 'd3d11'+redirect_suffix+'.spec.o',
+  input   : 'd3d11.spec',
+  command : [ winebuild,
+    target_arch, '-fno-asynchronous-unwind-tables', '--dll', '-D_REENTRANT', '-fPIC',
+    '-E', '@INPUT@', '-o', '@OUTPUT@',
+    '--',
+    d3d11_obj_path,
+
+    util_lib.full_path(),
+    dxvk_lib.full_path(),
+    spirv_lib.full_path(),
+
+    dxvk_library_path + '/libvulkan-1.def',
+    dxvk_library_path + '/libdxgi'+ redirect_suffix +'.def',
+
+    wine_library_path + '/wine/libwinecrt0.a',
+
+    wine_library_path + '/wine/libadvapi32.def',
+    wine_library_path + '/wine/libuser32.def',
+    wine_library_path + '/wine/libkernel32.def',
+    wine_library_path + '/wine/libntdll.def' ],
+  install : false)
 
 
 # create d3d11.dll.so for WINE
-d3d11_dll = shared_library('d3d11'+redirect_suffix+'.dll', d3d11_src_path,
+d3d11_dll = shared_library('d3d11'+redirect_suffix+'.dll', d3d11_src_path, d3d11_wine_dep_target,
   name_prefix         : '',
   link_with           : [ util_lib ],
-  dependencies        : [
-#    declare_dependency(link_args : ['-L'+dxvk_library_path, '-ldxgi'+redirect_suffix, '-lSPIRV-Tools-opt', '-lSPIRV-Tools']),
-    declare_dependency(link_args : ['-L'+dxvk_library_path, '-ldxgi'+redirect_suffix ]),
-    dxbc_dep, dxvk_dep ], # position metter
+  dependencies        : [ d3d11_wine_link, dxbc_dep, dxvk_dep ],
   include_directories : dxvk_include_path,
-  objects             : 'd3d11.spec',
+#  objects             : 'd3d11.spec',
   install             : true,
   install_dir         : d3d11_install_dir)
 
@@ -46,21 +81,56 @@ d3d11_dll_target = custom_target('d3d11.fake',
 
 dxgi_source_dir = meson.source_root() + '/src/dxgi/'
 dxgi_install_dir = get_option('libdir') + '/wine'
+dxgi_build_dir = 'linux/build/dxgi'+ redirect_suffix +'.dll@sha/'
 
 # add full path to sources
 dxgi_src_path = []
+dxgi_obj_path = []
 foreach src : dxgi_src
   dxgi_src_path += dxgi_source_dir + src
+  dxgi_obj_path += dxgi_build_dir + src + '.o'
 endforeach
+
+dxgi_wine_link = declare_dependency(link_args : [
+  '-Wl,-Bsymbolic',
+  '-Wl,-z,defs',
+  '-Wl,-init,__wine_spec_init,-fini,__wine_spec_fini',
+  '-L' + wine_library_path,
+  '-L' + winecrt0_library_path,
+  '-lwinecrt0', '-lwine', '-lm', '-lc', '-lpthread' ])
+
+# create dxgi dependency object for WINE
+dxgi_wine_dep_target = custom_target('dxgi.wine',
+  output  : 'dxgi'+redirect_suffix+'.spec.o',
+  input   : 'dxgi.spec',
+  command : [ winebuild,
+    target_arch, '-fno-asynchronous-unwind-tables', '--dll', '-D_REENTRANT', '-fPIC',
+    '-E', '@INPUT@', '-o', '@OUTPUT@',
+    '--',
+    dxgi_obj_path,
+
+    util_lib.full_path(),
+    dxvk_lib.full_path(),
+    spirv_lib.full_path(),
+
+    dxvk_library_path + '/libvulkan-1.def',
+
+    wine_library_path + '/wine/libwinecrt0.a',
+
+    wine_library_path + '/wine/libadvapi32.def',
+    wine_library_path + '/wine/libuser32.def',
+    wine_library_path + '/wine/libkernel32.def',
+    wine_library_path + '/wine/libntdll.def' ],
+  install : false)
 
 
 # create dxgi.dll.so for WINE
-dxgi_dll = shared_library('dxgi'+redirect_suffix+'.dll', dxgi_src_path,
+dxgi_dll = shared_library('dxgi'+redirect_suffix+'.dll', dxgi_src_path, dxgi_wine_dep_target,
   name_prefix         : '',
   link_with           : [ util_lib ],
-  dependencies        : [ dxvk_dep ],
+  dependencies        : [ dxgi_wine_link, dxvk_dep ],
   include_directories : dxvk_include_path,
-  objects             : 'dxgi.spec',
+#  objects             : 'dxgi.spec',
   install             : true,
   install_dir         : dxgi_install_dir)
 
@@ -81,6 +151,8 @@ dxgi_dll_target = custom_target('dxgi.fake',
 # tests part
 # -----------------------------------------------------------
 # name.exe and name.exe.so pairs are to be generated for WINE
+
+if get_option('tests')
 
 # tests/dxbc
 test_dxbc_src_dir = meson.source_root() + '/tests/dxbc/'
@@ -133,3 +205,5 @@ executable('dxgi-factory', files(test_dxgi_src_dir + 'test_dxgi_factory.cpp'),
 
 # installation control for name.exe
 executable('dxgi-factory.exe', build_by_default: false, name_suffix: 'so', install : get_option('install-tests'))
+
+endif # get_option('tests')
