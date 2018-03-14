@@ -1,7 +1,17 @@
 #pragma once
 
+#ifdef WINEBUILD
+// glslang version
+// for SPIRV-Headers it should be spirv/<version>/spirv.hpp
+#include <SPIRV/spirv.hpp>
+// Add namespace. Not sure, better to remove spv:: from GLSLstd450*
+namespace spv {
+#include <SPIRV/GLSL.std.450.h>
+}
+#else
 #include <spirv/spirv.hpp>
 #include <spirv/GLSL.std.450.hpp>
+#endif
 
 #include "spirv_include.h"
 

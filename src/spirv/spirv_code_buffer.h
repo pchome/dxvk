@@ -1,6 +1,12 @@
 #pragma once
 
+#ifdef WINEBUILD
+// glslang version
+// for SPIRV-Headers it should be spirv/<version>/spirv.hpp
+#include <SPIRV/spirv.hpp>
+#else
 #include <spirv/spirv.hpp>
+#endif
 
 #include <iostream>
 #include <vector>
