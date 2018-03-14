@@ -11,27 +11,6 @@ endif
 winebuild = find_program('winebuild')
 winegcc   = find_program('winegcc')
 
-
-# SPIRV-Tools includes all set of static libraries
-lib_spirvtools = dependency('SPIRV-Tools')
-lib_spirvtools_opt = declare_dependency()
-
-# TODO: use Libs and Cflags pkgconfig variables
-#lib_spirvtools_static = declare_dependency(
-#  link_args : [
-#    '-L' + lib_spirvtools.get_pkgconfig_variable('libdir'),
-#    '-lSPIRV-Tools'])
-#
-#lib_spirvtools_optimizer = declare_dependency(
-#  link_args : [
-#    '-L' + lib_spirvtools.get_pkgconfig_variable('libdir'),
-#    '-lSPIRV-Tools-opt']) #dxvk_compiler.find_library('SPIRV-Tools-opt') #declare_dependency(link_args : [ ])
-
-#lib_spirvtools_shared = declare_dependency(
-#  link_args : [
-#    '-L' + lib_spirvtools.get_pkgconfig_variable('libdir'),
-#    '-lSPIRV-Tools-shared'])
-
 # vulkan-1.dll
 lib_vulkan = declare_dependency(link_args : ['-L'+dxvk_library_path, '-lvulkan-1', '-lpthread'])
 
@@ -115,17 +94,27 @@ wine_flags_list = [ '-DWINEBUILD',
   #'-Isrc/dxbc',
   #'-Isrc/dxvk',
 
-  '-I' + lib_spirvtools.get_pkgconfig_variable('includedir'),
-
   '-isystem/usr/include/wine/windows' ]
 
 add_global_arguments(target_arch,     language : ['c', 'cpp'])
-add_global_arguments(wine_flags_list, language : ['c', 'cpp'])
 
+# TODO: this is for pure gcc build
+#add_global_arguments(wine_flags_list, language : ['c', 'cpp'])
 
-# TODO
-#if lib_spirvtools.found()
-#  # Do something.
-#else
-#  # Do something else.
-#endif
+tst_wine_flags_list = [
+  '-DWINEBUILD',
+  '-DNOMINMAX',
+#  '-fshort-wchar',
+#  '-DWIN64',
+#  '-D_WIN64',
+#  '-D__WIN64',
+#  '-D__WIN64__',
+#  '-DWINE_UNICODE_NATIVE',
+#  '-D_UNICODE',
+#  '-DUNICODE',
+#  '-D__WINE__',
+#  '-faligned-new',
+  '-isystem/usr/include/wine/windows']
+
+add_global_arguments(tst_wine_flags_list, language : ['c', 'cpp'])
+
