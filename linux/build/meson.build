@@ -152,7 +152,7 @@ dxgi_dll_target = custom_target('dxgi.fake',
 # -----------------------------------------------------------
 # name.exe and name.exe.so pairs are to be generated for WINE
 
-if get_option('tests')
+if get_option('enable_tests')
 
 # tests/dxbc
 test_dxbc_src_dir = meson.source_root() + '/tests/dxbc/'
@@ -206,4 +206,4 @@ executable('dxgi-factory', files(test_dxgi_src_dir + 'test_dxgi_factory.cpp'),
 # installation control for name.exe
 executable('dxgi-factory.exe', build_by_default: false, name_suffix: 'so', install : get_option('install-tests'))
 
-endif # get_option('tests')
+endif # get_option('enable_tests')

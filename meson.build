@@ -46,10 +46,13 @@ endif
 
 subdir('src')
 
-if dxvk_compiler.get_id() != 'msvc'
-if (get_option('tests'))
+enable_tests = get_option('enable_tests')
+
+if enable_tests
   subdir('tests')
 endif
+
+if dxvk_compiler.get_id() != 'msvc'
 
 if (get_option('utils'))
   subdir('wine_utils')
