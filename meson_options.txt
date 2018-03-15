@@ -3,6 +3,9 @@
 option('wine-build', type : 'boolean', value : 'false',
        description : 'build with winebuild wrapper')
 
+option('wine-libdir', type : 'string', value : '',
+       description : 'path to directory containing libwine.so, e.g. /usr/lib/wine')
+
 option('x86_32', type : 'boolean', value : 'false',
        description : 'build 32 bit libraries')
 

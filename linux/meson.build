@@ -1,28 +1,73 @@
 dxvk_include_path = include_directories('./include')
 
+# path to libwine.so
+wine_library_path = get_option('wine-libdir')
+
 if (cpu_family == 'x86_64') and not get_option('x86_32')
   target_arch = '-m64'
   dxvk_library_path = meson.source_root() + '/linux/lib64'
+  if (wine_library_path == '')
+    wine_library_path = '/usr/lib64/wine'
+  endif
 else
   target_arch = '-m32'
   dxvk_library_path = meson.source_root() + '/linux/lib'
+  if (wine_library_path == '')
+    wine_library_path = '/usr/lib/wine'
+  endif
 endif
 
+# path to libwinecrt0.a
+winecrt0_library_path = wine_library_path + '/wine'
+
+# needed to generate WINE *.dll and dependency objects
 winebuild = find_program('winebuild')
-#winegcc   = find_program('winegcc')
 
 # vulkan-1.dll
 #lib_vulkan = declare_dependency(link_args : ['-L'+dxvk_library_path, '-lvulkan-1', '-lpthread'])
+# FIXME: used in src/dxvk/
 lib_vulkan = declare_dependency()
 
-#lib_wine = dxvk_compiler.find_library('wine')
+# -----------------------------------------------------------
+# flags used by winegcc to build binaries
+# -----------------------------------------------------------
+wine_x86_64_flags = []
 
-# FIXME: hardcoded WINE path
-wine_library_path = '/usr/lib64/wine-staging-3.3'
-winecrt0_library_path = wine_library_path + '/wine'
+if (target_arch == '-m64')
+  wine_x86_64_flags = [
+    '-DWIN64',
+    '-D_WIN64',
+    '-D__WIN64',
+    '-D__WIN64__' ]
+  
+  wine_call_defs = [
+    '-D__stdcall=__attribute__((ms_abi))',
+    '-D__cdecl=__attribute__((ms_abi))',
+    '-D_stdcall=__attribute__((ms_abi))',
+    '-D_cdecl=__attribute__((ms_abi))',
+    '-D__fastcall=__attribute__((ms_abi))',
+    '-D_fastcall=__attribute__((ms_abi))' ]
 
-#lib_wine = declare_dependency(link_args : ['-L'+wine_library_path, '-lwine', '-lm', '-lc', '-lpthread'])
-#lib_winecrt0 = declare_dependency(link_args : ['-L'+wine_library_path+'/wine', '-lwinecrt0'])
+  wine_long_type = '-D__int64=long'
+else
+  wine_x86_64_flags = [
+    '-D__i386__',
+    '-U__x86_64__',
+    '-UWIN64',
+    '-U_WIN64',
+    '-U__WIN64',
+    '-U__WIN64__' ]
+
+  wine_call_defs = [
+    '-D__stdcall=__attribute__((__stdcall__)) __attribute__((__force_align_arg_pointer__))',
+    '-D__cdecl=__attribute__((__cdecl__)) __attribute__((__force_align_arg_pointer__))',
+    '-D_stdcall=__attribute__((__stdcall__)) __attribute__((__force_align_arg_pointer__))',
+    '-D_cdecl=__attribute__((__cdecl__)) __attribute__((__force_align_arg_pointer__))',
+    '-D__fastcall=__attribute__((__fastcall__))',
+    '-D_fastcall=__attribute__((__fastcall__))' ]
+
+  wine_long_type = '-D__int64=long long'
+endif
 
 wine_flags_list = [
   target_arch,
@@ -36,9 +81,9 @@ wine_flags_list = [
 
   '-DWINE_UNICODE_NATIVE',
 
-  '-fasynchronous-unwind-tables',
-  '-U_FORTIFY_SOURCE',
-  '-D_FORTIFY_SOURCE=0',
+  #'-fasynchronous-unwind-tables',
+  #'-U_FORTIFY_SOURCE',
+  #'-D_FORTIFY_SOURCE=0',
 
 
   '-D_UNICODE',
@@ -48,10 +93,7 @@ wine_flags_list = [
   # from winebuild output
   '-fshort-wchar',
 
-  '-DWIN64',
-  '-D_WIN64',
-  '-D__WIN64',
-  '-D__WIN64__',
+  wine_x86_64_flags,
 
   '-DWIN32',
   '-D_WIN32',
@@ -60,12 +102,7 @@ wine_flags_list = [
   '-D__WINNT',
   '-D__WINNT__',
 
-  '-D__stdcall=__attribute__((ms_abi))',
-  '-D__cdecl=__attribute__((ms_abi))',
-  '-D_stdcall=__attribute__((ms_abi))',
-  '-D_cdecl=__attribute__((ms_abi))',
-  '-D__fastcall=__attribute__((ms_abi))',
-  '-D_fastcall=__attribute__((ms_abi))',
+  wine_call_defs,
 
   '-D__declspec(x)=__declspec_##x',
   '-D__declspec_align(x)=__attribute__((aligned(x)))',
@@ -84,8 +121,9 @@ wine_flags_list = [
   '-D__int8=char',
   '-D__int16=short',
   '-D__int32=int',
-  '-D__int64=long',
+  wine_long_type,
 
   '-isystem/usr/include/wine/windows']
 
 add_global_arguments(wine_flags_list, language : ['c', 'cpp'])
+add_global_link_arguments(wine_flags_list, language : ['c', 'cpp'])

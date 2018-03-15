@@ -47,6 +47,9 @@ d3d11_wine_dep_target = custom_target('d3d11.wine',
     wine_library_path + '/wine/libuser32.def',
     wine_library_path + '/wine/libkernel32.def',
     wine_library_path + '/wine/libntdll.def' ],
+
+  depend_files : d3d11_src_path,
+  depends      : [ util_lib, dxvk_lib, spirv_lib, dxbc_lib ], # build all before link
   install : false)
 
 
@@ -121,6 +124,9 @@ dxgi_wine_dep_target = custom_target('dxgi.wine',
     wine_library_path + '/wine/libuser32.def',
     wine_library_path + '/wine/libkernel32.def',
     wine_library_path + '/wine/libntdll.def' ],
+
+  depend_files : dxgi_src_path,
+  depends      : [ util_lib, dxvk_lib, spirv_lib, dxbc_lib ], # build all before link
   install : false)
 
 
